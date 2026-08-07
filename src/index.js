@@ -5,6 +5,9 @@ const path = require('path');
 const config = require('./config');
 const { connectDb, closeDb } = require('./database/database');
 const { createServer } = require('./server');
+const { setupDiscordLogHook } = require('./utils/discordLogHook');
+
+setupDiscordLogHook();
 
 const client = new Client({
   intents: [
@@ -20,9 +23,13 @@ const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
-  if ('data' in command && 'execute' in command) {
-    client.commands.set(command.data.name, command);
+  try {
+    const command = require(filePath);
+    if ('data' in command && 'execute' in command) {
+      client.commands.set(command.data.name, command);
+    }
+  } catch (error) {
+    console.error(`Error loading command ${file}:`, error);
   }
 }
 
@@ -40,15 +47,19 @@ client.on('interactionCreate', async (interaction) => {
   try {
     await command.execute(interaction);
   } catch (error) {
-    console.error(error);
+    console.error(`Error executing ${interaction.commandName}:`, error);
     const reply = {
-      content: '❌ Có lỗi xảy ra!',
+      content: '❌ **Lỗi hệ thống**\nĐã xảy ra lỗi không mong muốn. Vui lòng thử lại!',
       ephemeral: true,
     };
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(reply);
-    } else {
-      await interaction.reply(reply);
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(reply);
+      } else {
+        await interaction.reply(reply);
+      }
+    } catch (e) {
+      console.error('Error sending error reply:', e);
     }
   }
 });
@@ -60,8 +71,17 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled promise rejection:', error);
+});
+
 (async () => {
-  await connectDb();
-  createServer(client);
-  await client.login(config.token);
+  try {
+    await connectDb();
+    createServer(client);
+    await client.login(config.token);
+  } catch (error) {
+    console.error('Failed to start bot:', error);
+    process.exit(1);
+  }
 })();

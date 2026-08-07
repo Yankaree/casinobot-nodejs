@@ -1,9 +1,10 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } = require('discord.js');
 const { ConfigModel } = require('../database/models');
 const GameSession = require('../games/taixiu/session');
 const config = require('../config');
 
 const activeSessions = new Map();
+const startLocks = new Map();
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -34,7 +35,16 @@ module.exports = {
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
 
-    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) && !config.adminUsers.includes(interaction.user.id)) {
+    if (subcommand === 'stats') {
+      const { getStatsEmbed } = require('../games/taixiu/stats');
+      const embed = await getStatsEmbed(interaction.guildId);
+      return interaction.reply({ embeds: [embed] });
+    }
+
+    const isAdminConfig = config.adminUsers.includes(interaction.user.id);
+    const isAdminDiscord = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    
+    if (!isAdminConfig && !isAdminDiscord) {
       return interaction.reply({ content: '❌ Chỉ admin mới dùng được lệnh này!', ephemeral: true });
     }
 
@@ -45,17 +55,27 @@ module.exports = {
     }
 
     if (subcommand === 'start') {
-      const channelId = await ConfigModel.getChannel(interaction.guildId);
-      if (!channelId) {
-        return interaction.reply({ content: '❌ Chưa đặt kênh Tài Xỉu! Dùng `/taixiu setchannel`', ephemeral: true });
+      if (startLocks.has(interaction.guildId)) {
+        return interaction.reply({ content: '⏳ **Đang xử lý**\nVui lòng chờ giây lát...', ephemeral: true });
       }
-      if (activeSessions.has(interaction.guildId)) {
-        return interaction.reply({ content: '❌ Game đang chạy!', ephemeral: true });
+      
+      startLocks.set(interaction.guildId, true);
+      
+      try {
+        const channelId = await ConfigModel.getChannel(interaction.guildId);
+        if (!channelId) {
+          return interaction.reply({ content: '❌ **Lỗi**\nChưa đặt kênh Tài Xỉu! Dùng `/taixiu setchannel`', ephemeral: true });
+        }
+        if (activeSessions.has(interaction.guildId)) {
+          return interaction.reply({ content: '❌ **Lỗi**\nGame đang chạy!', ephemeral: true });
+        }
+        const session = new GameSession(interaction.guildId, channelId);
+        activeSessions.set(interaction.guildId, session);
+        await session.start(interaction.client);
+        return interaction.reply({ content: '✅ Đã bắt đầu game Tài Xỉu!', ephemeral: true });
+      } finally {
+        startLocks.delete(interaction.guildId);
       }
-      const session = new GameSession(interaction.guildId, channelId);
-      activeSessions.set(interaction.guildId, session);
-      await session.start(interaction.client);
-      return interaction.reply({ content: '✅ Đã bắt đầu game Tài Xỉu!', ephemeral: true });
     }
 
     if (subcommand === 'stop') {
@@ -63,14 +83,9 @@ module.exports = {
       if (session) {
         session.stop();
         activeSessions.delete(interaction.guildId);
+        return interaction.reply({ content: '✅ Đã dừng game Tài Xỉu!', ephemeral: true });
       }
-      return interaction.reply({ content: '✅ Đã dừng game Tài Xỉu!', ephemeral: true });
-    }
-
-    if (subcommand === 'stats') {
-      const { getStatsEmbed } = require('../games/taixiu/stats');
-      const embed = await getStatsEmbed(interaction.guildId);
-      return interaction.reply({ embeds: [embed] });
+      return interaction.reply({ content: '⚠️ **Thông báo**\nGame chưa được bắt đầu!', ephemeral: true });
     }
   },
 

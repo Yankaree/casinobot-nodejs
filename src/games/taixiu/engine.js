@@ -177,10 +177,16 @@ function rollForTarget(guildId, targetResult) {
     attempts++;
   }
 
-  // Fallback: roll thường
-  const { d1, d2, d3 } = rollDice(guildId);
-  const result = calculateResult(d1, d2, d3);
-  addResult(guildId, result);
+  // Fallback: force kết quả đúng target
+  let d1, d2, d3;
+  if (targetResult === 'xiu') {
+    // Tổng 4-10: dùng 1,1,2 = 4 (xiu)
+    d1 = 1; d2 = 1; d3 = 2;
+  } else {
+    // Tổng 11-17: dùng 6,6,5 = 17 (tai)
+    d1 = 6; d2 = 6; d3 = 5;
+  }
+  addResult(guildId, targetResult);
   return { d1, d2, d3 };
 }
 

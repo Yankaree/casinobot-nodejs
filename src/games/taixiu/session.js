@@ -13,9 +13,11 @@ class GameSession extends EventEmitter {
     this.channelId = channelId;
     this.sessionId = null;
     this.isActive = false;
+    this.isStopped = false;
     this.timeLeft = config.game.sessionDuration;
     this.timer = null;
     this.updateTimer = null;
+    this.restartTimer = null;
     this.message = null;
     this.bets = { tai: 0, xiu: 0 };
     this.bettors = new Map();
@@ -23,7 +25,12 @@ class GameSession extends EventEmitter {
 
   async start(client) {
     this.sessionId = await SessionModel.create(this.guildId);
+    if (!this.sessionId) {
+      console.error('Failed to create session - no ID returned');
+      return;
+    }
     this.isActive = true;
+    this.isStopped = false;
     this.timeLeft = config.game.sessionDuration;
     this.bets = { tai: 0, xiu: 0 };
     this.bettors.clear();
@@ -34,26 +41,35 @@ class GameSession extends EventEmitter {
 
     this.message = await channel.send({ embeds: [this.createEmbed()] });
 
-    const tick = () => {
-      const jitter = 800 + Math.random() * 400;
-      this.updateTimer = setTimeout(() => {
-        this.timeLeft--;
-        if (this.message) {
-          this.message.edit({ embeds: [this.createEmbed()] }).catch(() => {});
-        }
-        if (this.timeLeft > 0) {
-          tick();
-        } else {
-          this.end(client);
-        }
-      }, jitter);
-    };
-    tick();
+    this._startTime = Date.now();
+    this._tickInterval = setInterval(() => {
+      if (this.isStopped) {
+        clearInterval(this._tickInterval);
+        return;
+      }
+      const elapsed = Math.floor((Date.now() - this._startTime) / 1000);
+      this.timeLeft = Math.max(0, config.game.sessionDuration - elapsed);
+      if (this.message) {
+        this.message.edit({ embeds: [this.createEmbed()] }).catch(() => {});
+      }
+      if (this.timeLeft <= 0) {
+        clearInterval(this._tickInterval);
+        this.end(client);
+      }
+    }, 1000);
   }
 
   createEmbed() {
-    const taiBar = formatProgressBar(this.bets.tai, this.bets.tai + this.bets.xiu + 1, 10);
-    const xiuBar = formatProgressBar(this.bets.xiu, this.bets.tai + this.bets.xiu + 1, 10);
+    const totalBets = this.bets.tai + this.bets.xiu;
+    let taiBar, xiuBar;
+    
+    if (totalBets === 0) {
+      taiBar = '░░░░░░░░░░';
+      xiuBar = '░░░░░░░░░░';
+    } else {
+      taiBar = formatProgressBar(this.bets.tai, totalBets, 10);
+      xiuBar = formatProgressBar(this.bets.xiu, totalBets, 10);
+    }
 
     return new EmbedBuilder()
       .setTitle('🎲 TÀI XỈU')
@@ -147,12 +163,19 @@ class GameSession extends EventEmitter {
 
   async addBet(userId, choice, amount) {
     if (!this.isActive) return { success: false, message: 'Phiên đã đóng!' };
-    if (amount <= 0) return { success: false, message: 'Số tiền phải lớn hơn 0!' };
+    if (this.isStopped) return { success: false, message: 'Game đã dừng!' };
+    if (amount < 1000) return { success: false, message: 'Mức cược tối thiểu là **1,000** 🪙!' };
 
     if (this.bettors.has(userId)) {
       return { success: false, message: 'Bạn đã đặt cược rồi!' };
     }
 
+    const balance = await UserModel.getBalance(userId);
+    if (balance < amount) {
+      return { success: false, message: `Không đủ coin! Số dư: ${formatCoins(balance)} 🪙` };
+    }
+
+    await UserModel.removeCoins(userId, amount);
     this.bets[choice] += amount;
     this.bettors.set(userId, { choice, amount });
 
@@ -164,8 +187,12 @@ class GameSession extends EventEmitter {
 
   async end(client) {
     if (!this.isActive) return;
+    if (this.isStopped) return;
 
-    clearTimeout(this.updateTimer);
+    if (this._tickInterval) {
+      clearInterval(this._tickInterval);
+      this._tickInterval = null;
+    }
     this.isActive = false;
 
     const totalBets = this.bets.tai + this.bets.xiu;
@@ -181,7 +208,11 @@ class GameSession extends EventEmitter {
         ] });
       }
       this.emit('ended', this.sessionId);
-      setTimeout(() => { this.start(client); }, 3000);
+      this.restartTimer = setTimeout(() => {
+        if (!this.isStopped) {
+          this.start(client);
+        }
+      }, 3000);
       return;
     }
 
@@ -194,6 +225,8 @@ class GameSession extends EventEmitter {
     }
 
     await new Promise(r => setTimeout(r, 2000));
+
+    if (this.isStopped) return;
 
     const { d1, d2, d3 } = rollDiceWithWeight(this.guildId);
     const result = calculateResult(d1, d2, d3);
@@ -212,14 +245,24 @@ class GameSession extends EventEmitter {
 
     this.emit('ended', this.sessionId);
 
-    setTimeout(() => {
-      this.start(client);
+    this.restartTimer = setTimeout(() => {
+      if (!this.isStopped) {
+        this.start(client);
+      }
     }, 5000);
   }
 
   stop() {
-    clearTimeout(this.updateTimer);
+    this.isStopped = true;
     this.isActive = false;
+    if (this._tickInterval) {
+      clearInterval(this._tickInterval);
+      this._tickInterval = null;
+    }
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
     resetHistory(this.guildId);
   }
 }

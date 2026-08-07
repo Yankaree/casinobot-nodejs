@@ -2,12 +2,17 @@ function formatCoins(amount) {
   return amount.toLocaleString('vi-VN');
 }
 
+function formatCount(count) {
+  return count.toLocaleString('vi-VN');
+}
+
 function formatDice(d1, d2, d3) {
   const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
   return `${diceEmojis[d1 - 1]} ${diceEmojis[d2 - 1]} ${diceEmojis[d3 - 1]}`;
 }
 
 function formatProgressBar(current, total, length = 10) {
+  if (total === 0) return '░'.repeat(length);
   const filled = Math.round((current / total) * length);
   const empty = length - filled;
   return '█'.repeat(filled) + '░'.repeat(empty);
@@ -31,6 +36,7 @@ function getResultText(result) {
 
 module.exports = {
   formatCoins,
+  formatCount,
   formatDice,
   formatProgressBar,
   formatTime,
