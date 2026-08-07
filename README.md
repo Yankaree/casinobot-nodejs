@@ -49,6 +49,7 @@ node deploy-commands.js
 | Command | Mô tả |
 |---------|-------|
 | `/balance` | Xem số dư coin |
+| `/work` | Đi làm kiếm coin (cooldown 1 giờ) |
 | `/bet tai <amount>` | Đặt cược Tài |
 | `/bet xiu <amount>` | Đặt cược Xỉu |
 | `/jackpot` | Xem jackpot hiện tại |
@@ -71,6 +72,13 @@ node deploy-commands.js
 - Thắng: nhận 120% tiền cược
 - Nổ hũ (1-1-1 hoặc 6-6-6): nhận 140% tiền cược
 - 5% tổng cược mỗi phiên được cộng vào jackpot
+
+## Tài liệu kỹ thuật
+
+- [Architecture](docs/ARCHITECTURE.md) — Tổng quan hệ thống & luồng chạy
+- [Modules](docs/MODULES.md) — Chi tiết từng module
+- [Database](docs/DATABASE.md) — Schema và mô hình dữ liệu
+- [Commands](docs/COMMANDS.md) — Tham chiếu lệnh
 
 ## Cấu trúc thư mục
 

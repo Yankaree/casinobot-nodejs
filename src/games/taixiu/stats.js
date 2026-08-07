@@ -12,7 +12,7 @@ async function getStatsEmbed(guildId) {
 
   const recentResults = recent
     .slice(0, 10)
-    .map((s) => `${s.result === 'tai' ? '📈' : '📉'} #${s._id}`)
+    .map((s) => `${s.result === 'tai' ? '📈' : '📉'} #${s.id}`)
     .join(' ');
 
   return new EmbedBuilder()

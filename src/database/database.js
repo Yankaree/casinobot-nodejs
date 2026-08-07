@@ -54,6 +54,12 @@ async function connectDb() {
       )
     `);
 
+    try {
+      await db.sql('ALTER TABLE users ADD COLUMN last_work_at DATETIME');
+    } catch (e) {
+      // column already exists
+    }
+
     console.log('✅ Connected to SQLite Cloud');
   }
   return db;

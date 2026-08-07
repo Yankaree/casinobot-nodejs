@@ -100,31 +100,48 @@ class GameSession extends EventEmitter {
     }
 
     if (bets.length > 0) {
-      const winnerLines = bets
-        .filter((b) => b.won)
-        .map((b) => `<@${b.discord_id}> +${formatCoins(b.payout)} 🪙`);
-      const loserLines = bets
-        .filter((b) => !b.won)
-        .map((b) => `<@${b.discord_id}> -${formatCoins(b.amount)} 🪙`);
+      const winners = bets.filter((b) => b.won);
+      const losers = bets.filter((b) => !b.won);
 
-      if (winnerLines.length > 0) {
-        embed.addFields({
-          name: '🏆 Người thắng',
-          value: winnerLines.join('\n') || 'Không có',
-          inline: false,
-        });
-      }
-      if (loserLines.length > 0) {
-        embed.addFields({
-          name: '💔 Người thua',
-          value: loserLines.join('\n') || 'Không có',
-          inline: false,
-        });
-      }
+      embed.addFields({
+        name: `🏆 Người thắng (${winners.length})`,
+        value: this.formatBettorList(winners, true),
+        inline: false,
+      });
+      embed.addFields({
+        name: `💔 Người thua (${losers.length})`,
+        value: this.formatBettorList(losers, false),
+        inline: false,
+      });
+    } else {
+      embed.addFields({
+        name: '🏆 Người thắng',
+        value: 'Không có',
+        inline: false,
+      });
+      embed.addFields({
+        name: '💔 Người thua',
+        value: 'Không có',
+        inline: false,
+      });
     }
 
     embed.setTimestamp();
     return embed;
+  }
+
+  formatBettorList(list, won) {
+    if (!list.length) return 'Không có';
+    const lines = list.map((b) =>
+      won
+        ? `<@${b.discord_id}> +${formatCoins(b.payout)} 🪙`
+        : `<@${b.discord_id}> -${formatCoins(b.amount)} 🪙`
+    );
+    let text = lines.join('\n');
+    if (text.length > 1000) {
+      text = `${lines.slice(0, 15).join('\n')}\n... và ${lines.length - 15} người khác`;
+    }
+    return text;
   }
 
   async addBet(userId, choice, amount) {
@@ -139,7 +156,7 @@ class GameSession extends EventEmitter {
     this.bettors.set(userId, { choice, amount });
 
     const user = await UserModel.getOrCreate(userId);
-    await BetModel.create(this.sessionId, user._id, choice, amount);
+    await BetModel.create(this.sessionId, user.id, choice, amount);
 
     return { success: true };
   }

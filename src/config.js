@@ -16,6 +16,12 @@ module.exports = {
     startingCoins: 10000,
   },
 
+  work: {
+    cooldownMs: 90 * 1000, // 90 giây
+    minReward: 500,
+    maxReward: 2000,
+  },
+
   adminUsers: ['924487653456511048'],
 
   colors: {

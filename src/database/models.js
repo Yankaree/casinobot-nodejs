@@ -47,13 +47,23 @@ const UserModel = {
     await this.getOrCreate(discordId);
     await db.sql('UPDATE users SET coin = ? WHERE discord_id = ?', amount, discordId);
   },
+
+  async getLastWork(discordId) {
+    const user = await this.getOrCreate(discordId);
+    return user.last_work_at || null;
+  },
+
+  async setLastWork(discordId, time) {
+    const db = getDb();
+    await db.sql('UPDATE users SET last_work_at = ? WHERE discord_id = ?', time, discordId);
+  },
 };
 
 const SessionModel = {
   async create(guildId) {
     const db = getDb();
     const result = await db.sql('INSERT INTO sessions (guild_id) VALUES (?)', guildId);
-    return result.lastInsertRowid;
+    return result.lastID;
   },
 
   async finish(sessionId, dice1, dice2, dice3, result, totalBet) {
