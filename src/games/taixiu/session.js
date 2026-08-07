@@ -22,7 +22,7 @@ class GameSession extends EventEmitter {
   }
 
   async start(client) {
-    this.sessionId = SessionModel.create(this.guildId);
+    this.sessionId = await SessionModel.create(this.guildId);
     this.isActive = true;
     this.timeLeft = config.game.sessionDuration;
     this.bets = { tai: 0, xiu: 0 };
@@ -127,7 +127,7 @@ class GameSession extends EventEmitter {
     return embed;
   }
 
-  addBet(userId, choice, amount) {
+  async addBet(userId, choice, amount) {
     if (!this.isActive) return { success: false, message: 'Phiên đã đóng!' };
     if (amount <= 0) return { success: false, message: 'Số tiền phải lớn hơn 0!' };
 
@@ -138,8 +138,8 @@ class GameSession extends EventEmitter {
     this.bets[choice] += amount;
     this.bettors.set(userId, { choice, amount });
 
-    const user = UserModel.getOrCreate(userId);
-    BetModel.create(this.sessionId, user.id, choice, amount);
+    const user = await UserModel.getOrCreate(userId);
+    await BetModel.create(this.sessionId, user._id, choice, amount);
 
     return { success: true };
   }
@@ -181,12 +181,12 @@ class GameSession extends EventEmitter {
     const result = calculateResult(d1, d2, d3);
     const jackpot = isJackpot(d1, d2, d3);
 
-    SessionModel.finish(this.sessionId, d1, d2, d3, result, totalBets);
+    await SessionModel.finish(this.sessionId, d1, d2, d3, result, totalBets);
 
-    const bets = BetModel.getSessionBets(this.sessionId);
+    const bets = await BetModel.getSessionBets(this.sessionId);
     await processRewards(this.guildId, this.sessionId, result, jackpot, bets);
 
-    const updatedBets = BetModel.getSessionBets(this.sessionId);
+    const updatedBets = await BetModel.getSessionBets(this.sessionId);
 
     if (channel) {
       await channel.send({ embeds: [this.createResultEmbed(d1, d2, d3, result, jackpot, updatedBets)] });

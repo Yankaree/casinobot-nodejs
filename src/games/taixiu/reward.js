@@ -6,16 +6,14 @@ async function processRewards(guildId, sessionId, result, jackpot, bets) {
   const winners = bets.filter(b => b.choice === result);
 
   for (const bet of losers) {
-    const user = UserModel.getOrCreate(bet.discord_id);
-    ConfigModel.addJackpot(guildId, bet.amount);
-    UserModel.addLose(bet.discord_id);
-    BetModel.updateResult(sessionId, user.id, false, 0);
+    await ConfigModel.addJackpot(guildId, bet.amount);
+    await UserModel.addLose(bet.discord_id);
+    await BetModel.updateResult(sessionId, bet.user_id, false, 0);
   }
 
-  let jackpotBalance = ConfigModel.getJackpot(guildId);
+  let jackpotBalance = await ConfigModel.getJackpot(guildId);
 
   for (const bet of winners) {
-    const user = UserModel.getOrCreate(bet.discord_id);
     let payout = 0;
 
     if (jackpot) {
@@ -29,12 +27,12 @@ async function processRewards(guildId, sessionId, result, jackpot, bets) {
     }
 
     if (payout > 0) {
-      ConfigModel.addJackpot(guildId, -payout);
-      UserModel.addCoins(bet.discord_id, payout);
+      await ConfigModel.addJackpot(guildId, -payout);
+      await UserModel.addCoins(bet.discord_id, payout);
     }
 
-    UserModel.addWin(bet.discord_id);
-    BetModel.updateResult(sessionId, user.id, true, payout);
+    await UserModel.addWin(bet.discord_id);
+    await BetModel.updateResult(sessionId, bet.user_id, true, payout);
   }
 }
 

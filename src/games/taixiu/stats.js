@@ -3,16 +3,16 @@ const { EmbedBuilder } = require('discord.js');
 const config = require('../../config');
 const { formatCoins } = require('../../utils/formatter');
 
-function getStatsEmbed(guildId) {
-  const stats = SessionModel.getStats(guildId);
-  const recent = SessionModel.getRecent(guildId, 20);
+async function getStatsEmbed(guildId) {
+  const stats = await SessionModel.getStats(guildId);
+  const recent = await SessionModel.getRecent(guildId, 20);
 
   const taiPercent = stats.total > 0 ? Math.round((stats.tai / stats.total) * 100) : 0;
   const xiuPercent = stats.total > 0 ? Math.round((stats.xiu / stats.total) * 100) : 0;
 
   const recentResults = recent
     .slice(0, 10)
-    .map((s) => `${s.result === 'tai' ? '📈' : '📉'} #${s.id}`)
+    .map((s) => `${s.result === 'tai' ? '📈' : '📉'} #${s._id}`)
     .join(' ');
 
   return new EmbedBuilder()
@@ -39,8 +39,9 @@ function getStatsEmbed(guildId) {
     .setTimestamp();
 }
 
-function getJackpotEmbed(guildId) {
-  const jackpot = require('../../database/models').ConfigModel.getJackpot(guildId);
+async function getJackpotEmbed(guildId) {
+  const { ConfigModel } = require('../../database/models');
+  const jackpot = await ConfigModel.getJackpot(guildId);
 
   return new EmbedBuilder()
     .setTitle('💰 HŨ HIỆN TẠI')

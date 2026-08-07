@@ -40,12 +40,12 @@ module.exports = {
 
     if (subcommand === 'setchannel') {
       const channel = interaction.options.getChannel('channel');
-      ConfigModel.setChannel(interaction.guildId, channel.id);
+      await ConfigModel.setChannel(interaction.guildId, channel.id);
       return interaction.reply({ content: `✅ Đã đặt kênh Tài Xỉu: ${channel}`, ephemeral: true });
     }
 
     if (subcommand === 'start') {
-      const channelId = ConfigModel.getChannel(interaction.guildId);
+      const channelId = await ConfigModel.getChannel(interaction.guildId);
       if (!channelId) {
         return interaction.reply({ content: '❌ Chưa đặt kênh Tài Xỉu! Dùng `/taixiu setchannel`', ephemeral: true });
       }
@@ -69,7 +69,7 @@ module.exports = {
 
     if (subcommand === 'stats') {
       const { getStatsEmbed } = require('../games/taixiu/stats');
-      const embed = getStatsEmbed(interaction.guildId);
+      const embed = await getStatsEmbed(interaction.guildId);
       return interaction.reply({ embeds: [embed] });
     }
   },

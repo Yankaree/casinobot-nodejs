@@ -1,74 +1,36 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { MongoClient } = require('mongodb');
+const config = require('../config');
 
-const DB_PATH = path.join(__dirname, '..', '..', 'data', 'bot.db');
+const client = new MongoClient(config.mongoUri);
+let db = null;
 
-let db;
-
-function getDb() {
+async function connectDb() {
   if (!db) {
-    const fs = require('fs');
-    const dir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    await client.connect();
+    db = client.db('taixiu_bot');
 
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initTables();
+    await db.collection('users').createIndex({ discord_id: 1 }, { unique: true });
+    await db.collection('sessions').createIndex({ guild_id: 1, id: -1 });
+    await db.collection('bets').createIndex({ session_id: 1 });
+    await db.collection('bets').createIndex({ user_id: 1 });
+    await db.collection('config').createIndex({ guild_id: 1 }, { unique: true });
+
+    console.log('✅ Connected to MongoDB');
   }
   return db;
 }
 
-function initTables() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      discord_id TEXT UNIQUE NOT NULL,
-      coin INTEGER DEFAULT 10000,
-      win_count INTEGER DEFAULT 0,
-      lose_count INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      dice1 INTEGER,
-      dice2 INTEGER,
-      dice3 INTEGER,
-      result TEXT,
-      total_bet INTEGER DEFAULT 0,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS bets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      choice TEXT NOT NULL CHECK(choice IN ('tai', 'xiu')),
-      amount INTEGER NOT NULL,
-      won INTEGER DEFAULT 0,
-      payout INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (session_id) REFERENCES sessions(id),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS config (
-      guild_id TEXT PRIMARY KEY,
-      taixiu_channel_id TEXT,
-      jackpot_balance INTEGER DEFAULT 0
-    );
-  `);
+function getDb() {
+  if (!db) throw new Error('Database not connected. Call connectDb() first.');
+  return db;
 }
 
-function closeDb() {
-  if (db) {
-    db.close();
+async function closeDb() {
+  if (client) {
+    await client.close();
     db = null;
+    console.log('🛑 MongoDB connection closed');
   }
 }
 
-module.exports = { getDb, closeDb };
+module.exports = { connectDb, getDb, closeDb };

@@ -35,15 +35,15 @@ module.exports = {
       if (amount <= 0) {
         return interaction.reply({ content: '❌ Số coin phải lớn hơn 0!', ephemeral: true });
       }
-      UserModel.addCoins(user.id, amount);
-      const newBalance = UserModel.getBalance(user.id);
+      await UserModel.addCoins(user.id, amount);
+      const newBalance = await UserModel.getBalance(user.id);
       return interaction.reply({
         content: `✅ Đã tặng **${formatCoins(amount)}** 🪙 cho ${user}\n💰 Số dư mới: **${formatCoins(newBalance)}** 🪙`,
       });
     }
 
     if (subcommand === 'resetjackpot') {
-      ConfigModel.resetJackpot(interaction.guildId);
+      await ConfigModel.resetJackpot(interaction.guildId);
       return interaction.reply({ content: '✅ Đã reset jackpot!' });
     }
   },

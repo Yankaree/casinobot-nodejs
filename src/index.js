@@ -3,7 +3,7 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const config = require('./config');
-const { closeDb } = require('./database/database');
+const { connectDb, closeDb } = require('./database/database');
 
 const client = new Client({
   intents: [
@@ -52,11 +52,14 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down...');
-  closeDb();
+  await closeDb();
   client.destroy();
   process.exit(0);
 });
 
-client.login(config.token);
+(async () => {
+  await connectDb();
+  await client.login(config.token);
+})();

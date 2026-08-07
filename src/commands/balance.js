@@ -13,7 +13,7 @@ module.exports = {
 
   async execute(interaction) {
     const targetUser = interaction.options.getUser('user') || interaction.user;
-    const user = UserModel.getOrCreate(targetUser.id);
+    const user = await UserModel.getOrCreate(targetUser.id);
 
     const embed = new EmbedBuilder()
       .setTitle('💰 Số Dư Coin')

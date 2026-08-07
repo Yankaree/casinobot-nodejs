@@ -7,7 +7,7 @@ module.exports = {
     .setDescription('Xem jackpot hiện tại'),
 
   async execute(interaction) {
-    const embed = getJackpotEmbed(interaction.guildId);
+    const embed = await getJackpotEmbed(interaction.guildId);
     return interaction.reply({ embeds: [embed] });
   },
 };

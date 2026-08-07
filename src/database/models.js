@@ -1,208 +1,256 @@
 const { getDb } = require('./database');
+const { ObjectId } = require('mongodb');
 
 const UserModel = {
-  getOrCreate(discordId) {
-    const db = getDb();
-    let user = db.prepare('SELECT * FROM users WHERE discord_id = ?').get(discordId);
+  collection() {
+    return getDb().collection('users');
+  },
+
+  async getOrCreate(discordId) {
+    let user = await this.collection().findOne({ discord_id: discordId });
     if (!user) {
-      const stmt = db.prepare('INSERT INTO users (discord_id) VALUES (?)');
-      const result = stmt.run(discordId);
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+      const doc = {
+        discord_id: discordId,
+        coin: 10000,
+        win_count: 0,
+        lose_count: 0,
+        created_at: new Date(),
+      };
+      const result = await this.collection().insertOne(doc);
+      user = await this.collection().findOne({ _id: result.insertedId });
     }
     return user;
   },
 
-  getBalance(discordId) {
-    const user = this.getOrCreate(discordId);
+  async getBalance(discordId) {
+    const user = await this.getOrCreate(discordId);
     return user.coin;
   },
 
-  addCoins(discordId, amount) {
-    const db = getDb();
-    this.getOrCreate(discordId);
-    db.prepare('UPDATE users SET coin = coin + ? WHERE discord_id = ?').run(amount, discordId);
+  async addCoins(discordId, amount) {
+    await this.getOrCreate(discordId);
+    await this.collection().updateOne({ discord_id: discordId }, { $inc: { coin: amount } });
     return this.getBalance(discordId);
   },
 
-  removeCoins(discordId, amount) {
-    const db = getDb();
-    this.getOrCreate(discordId);
-    db.prepare('UPDATE users SET coin = coin - ? WHERE discord_id = ?').run(amount, discordId);
+  async removeCoins(discordId, amount) {
+    await this.getOrCreate(discordId);
+    await this.collection().updateOne({ discord_id: discordId }, { $inc: { coin: -amount } });
     return this.getBalance(discordId);
   },
 
-  addWin(discordId) {
-    const db = getDb();
-    this.getOrCreate(discordId);
-    db.prepare('UPDATE users SET win_count = win_count + 1 WHERE discord_id = ?').run(discordId);
+  async addWin(discordId) {
+    await this.getOrCreate(discordId);
+    await this.collection().updateOne({ discord_id: discordId }, { $inc: { win_count: 1 } });
   },
 
-  addLose(discordId) {
-    const db = getDb();
-    this.getOrCreate(discordId);
-    db.prepare('UPDATE users SET lose_count = lose_count + 1 WHERE discord_id = ?').run(discordId);
+  async addLose(discordId) {
+    await this.getOrCreate(discordId);
+    await this.collection().updateOne({ discord_id: discordId }, { $inc: { lose_count: 1 } });
   },
 
-  setCoins(discordId, amount) {
-    const db = getDb();
-    this.getOrCreate(discordId);
-    db.prepare('UPDATE users SET coin = ? WHERE discord_id = ?').run(amount, discordId);
+  async setCoins(discordId, amount) {
+    await this.getOrCreate(discordId);
+    await this.collection().updateOne({ discord_id: discordId }, { $set: { coin: amount } });
   },
 };
 
 const SessionModel = {
-  create(guildId) {
-    const db = getDb();
-    const stmt = db.prepare('INSERT INTO sessions (guild_id) VALUES (?)');
-    const result = stmt.run(guildId);
-    return result.lastInsertRowid;
+  collection() {
+    return getDb().collection('sessions');
   },
 
-  finish(sessionId, dice1, dice2, dice3, result, totalBet) {
-    const db = getDb();
-    db.prepare(
-      'UPDATE sessions SET dice1 = ?, dice2 = ?, dice3 = ?, result = ?, total_bet = ? WHERE id = ?'
-    ).run(dice1, dice2, dice3, result, totalBet, sessionId);
-  },
-
-  getById(sessionId) {
-    const db = getDb();
-    return db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
-  },
-
-  getRecent(guildId, limit = 20) {
-    const db = getDb();
-    return db
-      .prepare(
-        'SELECT * FROM sessions WHERE guild_id = ? AND result IS NOT NULL ORDER BY id DESC LIMIT ?'
-      )
-      .all(guildId, limit);
-  },
-
-  getStats(guildId) {
-    const db = getDb();
-    const total = db
-      .prepare('SELECT COUNT(*) as count FROM sessions WHERE guild_id = ? AND result IS NOT NULL')
-      .get(guildId);
-    const tai = db
-      .prepare(
-        'SELECT COUNT(*) as count FROM sessions WHERE guild_id = ? AND result = ?'
-      )
-      .get(guildId, 'tai');
-    const xiu = db
-      .prepare(
-        'SELECT COUNT(*) as count FROM sessions WHERE guild_id = ? AND result = ?'
-      )
-      .get(guildId, 'xiu');
-    return {
-      total: total.count,
-      tai: tai.count,
-      xiu: xiu.count,
+  async create(guildId) {
+    const doc = {
+      guild_id: guildId,
+      dice1: null,
+      dice2: null,
+      dice3: null,
+      result: null,
+      total_bet: 0,
+      timestamp: new Date(),
     };
+    const result = await this.collection().insertOne(doc);
+    return result.insertedId;
   },
 
-  getTotalBets(sessionId) {
-    const db = getDb();
-    const result = db
-      .prepare('SELECT COALESCE(SUM(amount), 0) as total FROM bets WHERE session_id = ?')
-      .get(sessionId);
-    return result.total;
+  async finish(sessionId, dice1, dice2, dice3, result, totalBet) {
+    await this.collection().updateOne(
+      { _id: new ObjectId(sessionId) },
+      { $set: { dice1, dice2, dice3, result, total_bet: totalBet } }
+    );
+  },
+
+  async getById(sessionId) {
+    return this.collection().findOne({ _id: new ObjectId(sessionId) });
+  },
+
+  async getRecent(guildId, limit = 20) {
+    return this.collection()
+      .find({ guild_id: guildId, result: { $ne: null } })
+      .sort({ _id: -1 })
+      .limit(limit)
+      .toArray();
+  },
+
+  async getStats(guildId) {
+    const pipeline = [
+      { $match: { guild_id: guildId, result: { $ne: null } } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          tai: { $sum: { $cond: [{ $eq: ['$result', 'tai'] }, 1, 0] } },
+          xiu: { $sum: { $cond: [{ $eq: ['$result', 'xiu'] }, 1, 0] } },
+        },
+      },
+    ];
+    const result = await this.collection().aggregate(pipeline).toArray();
+    if (result.length === 0) return { total: 0, tai: 0, xiu: 0 };
+    return { total: result[0].total, tai: result[0].tai, xiu: result[0].xiu };
+  },
+
+  async getTotalBets(sessionId) {
+    const pipeline = [
+      { $match: { session_id: new ObjectId(sessionId) } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ];
+    const result = await getDb().collection('bets').aggregate(pipeline).toArray();
+    return result.length > 0 ? result[0].total : 0;
   },
 };
 
 const BetModel = {
-  create(sessionId, userId, choice, amount) {
-    const db = getDb();
-    const stmt = db.prepare(
-      'INSERT INTO bets (session_id, user_id, choice, amount) VALUES (?, ?, ?, ?)'
+  collection() {
+    return getDb().collection('bets');
+  },
+
+  async create(sessionId, userId, choice, amount) {
+    const doc = {
+      session_id: new ObjectId(sessionId),
+      user_id: new ObjectId(userId),
+      choice,
+      amount,
+      won: 0,
+      payout: 0,
+      created_at: new Date(),
+    };
+    return this.collection().insertOne(doc);
+  },
+
+  async updateResult(sessionId, userId, won, payout) {
+    await this.collection().updateOne(
+      { session_id: new ObjectId(sessionId), user_id: new ObjectId(userId) },
+      { $set: { won: won ? 1 : 0, payout } }
     );
-    return stmt.run(sessionId, userId, choice, amount);
   },
 
-  updateResult(sessionId, userId, won, payout) {
-    const db = getDb();
-    db.prepare('UPDATE bets SET won = ?, payout = ? WHERE session_id = ? AND user_id = ?').run(
-      won ? 1 : 0,
-      payout,
-      sessionId,
-      userId
-    );
+  async getSessionBets(sessionId) {
+    return this.collection()
+      .aggregate([
+        { $match: { session_id: new ObjectId(sessionId) } },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        { $unwind: '$user' },
+        {
+          $project: {
+            _id: 1,
+            session_id: 1,
+            user_id: 1,
+            choice: 1,
+            amount: 1,
+            won: 1,
+            payout: 1,
+            discord_id: '$user.discord_id',
+          },
+        },
+      ])
+      .toArray();
   },
 
-  getSessionBets(sessionId) {
-    const db = getDb();
-    return db
-      .prepare(
-        `SELECT b.*, u.discord_id 
-         FROM bets b 
-         JOIN users u ON b.user_id = u.id 
-         WHERE b.session_id = ?`
-      )
-      .all(sessionId);
-  },
-
-  getUserStats(discordId) {
-    const db = getDb();
-    const user = db.prepare('SELECT id FROM users WHERE discord_id = ?').get(discordId);
+  async getUserStats(discordId) {
+    const user = await getDb().collection('users').findOne({ discord_id: discordId });
     if (!user) return { totalBets: 0, totalWon: 0, totalLost: 0 };
 
-    const stats = db
-      .prepare(
-        `SELECT 
-          COUNT(*) as totalBets,
-          COALESCE(SUM(CASE WHEN won = 1 THEN payout ELSE 0 END), 0) as totalWon,
-          COALESCE(SUM(CASE WHEN won = 0 THEN amount ELSE 0 END), 0) as totalLost
-         FROM bets WHERE user_id = ?`
-      )
-      .get(user.id);
-    return stats;
+    const pipeline = [
+      { $match: { user_id: user._id } },
+      {
+        $group: {
+          _id: null,
+          totalBets: { $sum: 1 },
+          totalWon: {
+            $sum: { $cond: [{ $eq: ['$won', 1] }, '$payout', 0] },
+          },
+          totalLost: {
+            $sum: { $cond: [{ $eq: ['$won', 0] }, '$amount', 0] },
+          },
+        },
+      },
+    ];
+    const result = await this.collection().aggregate(pipeline).toArray();
+    if (result.length === 0) return { totalBets: 0, totalWon: 0, totalLost: 0 };
+    return result[0];
   },
 };
 
 const ConfigModel = {
-  get(guildId) {
-    const db = getDb();
-    let config = db.prepare('SELECT * FROM config WHERE guild_id = ?').get(guildId);
-    if (!config) {
-      db.prepare('INSERT INTO config (guild_id) VALUES (?)').run(guildId);
-      config = db.prepare('SELECT * FROM config WHERE guild_id = ?').get(guildId);
-    }
-    return config;
+  collection() {
+    return getDb().collection('config');
   },
 
-  setChannel(guildId, channelId) {
-    const db = getDb();
-    this.get(guildId);
-    db.prepare('UPDATE config SET taixiu_channel_id = ? WHERE guild_id = ?').run(
-      channelId,
-      guildId
+  async get(guildId) {
+    let cfg = await this.collection().findOne({ guild_id: guildId });
+    if (!cfg) {
+      const doc = {
+        guild_id: guildId,
+        taixiu_channel_id: null,
+        jackpot_balance: 0,
+      };
+      await this.collection().insertOne(doc);
+      cfg = await this.collection().findOne({ guild_id: guildId });
+    }
+    return cfg;
+  },
+
+  async setChannel(guildId, channelId) {
+    await this.get(guildId);
+    await this.collection().updateOne(
+      { guild_id: guildId },
+      { $set: { taixiu_channel_id: channelId } }
     );
   },
 
-  getChannel(guildId) {
-    const config = this.get(guildId);
-    return config.taixiu_channel_id;
+  async getChannel(guildId) {
+    const cfg = await this.get(guildId);
+    return cfg.taixiu_channel_id;
   },
 
-  getJackpot(guildId) {
-    const config = this.get(guildId);
-    return config.jackpot_balance;
+  async getJackpot(guildId) {
+    const cfg = await this.get(guildId);
+    return cfg.jackpot_balance;
   },
 
-  addJackpot(guildId, amount) {
-    const db = getDb();
-    this.get(guildId);
-    db.prepare('UPDATE config SET jackpot_balance = jackpot_balance + ? WHERE guild_id = ?').run(
-      amount,
-      guildId
+  async addJackpot(guildId, amount) {
+    await this.get(guildId);
+    await this.collection().updateOne(
+      { guild_id: guildId },
+      { $inc: { jackpot_balance: amount } }
     );
     return this.getJackpot(guildId);
   },
 
-  resetJackpot(guildId) {
-    const db = getDb();
-    this.get(guildId);
-    db.prepare('UPDATE config SET jackpot_balance = 0 WHERE guild_id = ?').run(guildId);
+  async resetJackpot(guildId) {
+    await this.get(guildId);
+    await this.collection().updateOne(
+      { guild_id: guildId },
+      { $set: { jackpot_balance: 0 } }
+    );
     return 0;
   },
 };

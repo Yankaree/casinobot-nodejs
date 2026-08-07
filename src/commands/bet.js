@@ -25,7 +25,7 @@ module.exports = {
 
   async execute(interaction) {
     const session = getActiveSession(interaction.guildId);
-    const channelId = ConfigModel.getChannel(interaction.guildId);
+    const channelId = await ConfigModel.getChannel(interaction.guildId);
 
     if (!channelId) {
       return interaction.reply({
@@ -58,7 +58,7 @@ module.exports = {
       });
     }
 
-    const balance = UserModel.getBalance(interaction.user.id);
+    const balance = await UserModel.getBalance(interaction.user.id);
     if (balance < amount) {
       return interaction.reply({
         content: `❌ Không đủ coin! Số dư: **${formatCoins(balance)}** 🪙`,
@@ -66,11 +66,11 @@ module.exports = {
       });
     }
 
-    UserModel.removeCoins(interaction.user.id, amount);
+    await UserModel.removeCoins(interaction.user.id, amount);
 
-    const result = session.addBet(interaction.user.id, choice, amount);
+    const result = await session.addBet(interaction.user.id, choice, amount);
     if (!result.success) {
-      UserModel.addCoins(interaction.user.id, amount);
+      await UserModel.addCoins(interaction.user.id, amount);
       return interaction.reply({
         content: `❌ ${result.message}`,
         ephemeral: true,
