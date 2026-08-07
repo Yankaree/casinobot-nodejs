@@ -181,14 +181,10 @@ class GameSession extends EventEmitter {
     const result = calculateResult(d1, d2, d3);
     const jackpot = isJackpot(d1, d2, d3);
 
-    if (totalBets > 0) {
-      ConfigModel.addJackpot(this.guildId, Math.floor(totalBets * config.game.jackpotPercent));
-    }
-
     SessionModel.finish(this.sessionId, d1, d2, d3, result, totalBets);
 
     const bets = BetModel.getSessionBets(this.sessionId);
-    await processRewards(this.sessionId, result, jackpot, bets);
+    await processRewards(this.guildId, this.sessionId, result, jackpot, bets);
 
     const updatedBets = BetModel.getSessionBets(this.sessionId);
 
