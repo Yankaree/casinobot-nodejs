@@ -1,21 +1,60 @@
-const { MongoClient } = require('mongodb');
+const { Database } = require('@sqlitecloud/drivers');
 const config = require('../config');
 
-const client = new MongoClient(config.mongoUri);
 let db = null;
 
 async function connectDb() {
   if (!db) {
-    await client.connect();
-    db = client.db('taixiu_bot');
+    db = new Database(config.sqliteUri);
 
-    await db.collection('users').createIndex({ discord_id: 1 }, { unique: true });
-    await db.collection('sessions').createIndex({ guild_id: 1, id: -1 });
-    await db.collection('bets').createIndex({ session_id: 1 });
-    await db.collection('bets').createIndex({ user_id: 1 });
-    await db.collection('config').createIndex({ guild_id: 1 }, { unique: true });
+    await db.sql(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        discord_id TEXT UNIQUE NOT NULL,
+        coin INTEGER DEFAULT 10000,
+        win_count INTEGER DEFAULT 0,
+        lose_count INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    console.log('✅ Connected to MongoDB');
+    await db.sql(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL,
+        dice1 INTEGER,
+        dice2 INTEGER,
+        dice3 INTEGER,
+        result TEXT,
+        total_bet INTEGER DEFAULT 0,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await db.sql(`
+      CREATE TABLE IF NOT EXISTS bets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        choice TEXT NOT NULL CHECK(choice IN ('tai', 'xiu')),
+        amount INTEGER NOT NULL,
+        won INTEGER DEFAULT 0,
+        payout INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (session_id) REFERENCES sessions(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    await db.sql(`
+      CREATE TABLE IF NOT EXISTS config (
+        guild_id TEXT PRIMARY KEY,
+        taixiu_channel_id TEXT,
+        jackpot_balance INTEGER DEFAULT 0
+      )
+    `);
+
+    console.log('✅ Connected to SQLite Cloud');
   }
   return db;
 }
@@ -26,10 +65,10 @@ function getDb() {
 }
 
 async function closeDb() {
-  if (client) {
-    await client.close();
+  if (db) {
+    await db.close();
     db = null;
-    console.log('🛑 MongoDB connection closed');
+    console.log('🛑 SQLite Cloud connection closed');
   }
 }
 
