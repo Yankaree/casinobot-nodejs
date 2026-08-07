@@ -54,10 +54,10 @@ async function connectDb() {
       )
     `);
 
-    try {
+    const cols = await db.sql("PRAGMA table_info(users)");
+    const hasLastWork = cols.some(c => c.name === 'last_work_at');
+    if (!hasLastWork) {
       await db.sql('ALTER TABLE users ADD COLUMN last_work_at DATETIME');
-    } catch (e) {
-      // column already exists
     }
 
     console.log('✅ Connected to SQLite Cloud');
