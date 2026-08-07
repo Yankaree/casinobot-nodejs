@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('./config');
 const { connectDb, closeDb } = require('./database/database');
+const { createServer } = require('./server');
 
 const client = new Client({
   intents: [
@@ -61,5 +62,6 @@ process.on('SIGINT', async () => {
 
 (async () => {
   await connectDb();
+  createServer(client);
   await client.login(config.token);
 })();
