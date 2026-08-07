@@ -33,15 +33,21 @@ class GameSession extends EventEmitter {
 
     this.message = await channel.send({ embeds: [this.createEmbed()] });
 
-    this.updateTimer = setInterval(() => {
-      this.timeLeft--;
-      if (this.message) {
-        this.message.edit({ embeds: [this.createEmbed()] }).catch(() => {});
-      }
-      if (this.timeLeft <= 0) {
-        this.end(client);
-      }
-    }, 1000);
+    const tick = () => {
+      const jitter = 800 + Math.random() * 400;
+      this.updateTimer = setTimeout(() => {
+        this.timeLeft--;
+        if (this.message) {
+          this.message.edit({ embeds: [this.createEmbed()] }).catch(() => {});
+        }
+        if (this.timeLeft > 0) {
+          tick();
+        } else {
+          this.end(client);
+        }
+      }, jitter);
+    };
+    tick();
   }
 
   createEmbed() {
@@ -141,7 +147,7 @@ class GameSession extends EventEmitter {
   async end(client) {
     if (!this.isActive) return;
 
-    clearInterval(this.updateTimer);
+    clearTimeout(this.updateTimer);
     this.isActive = false;
 
     const totalBets = this.bets.tai + this.bets.xiu;
@@ -198,7 +204,7 @@ class GameSession extends EventEmitter {
   }
 
   stop() {
-    clearInterval(this.updateTimer);
+    clearTimeout(this.updateTimer);
     this.isActive = false;
   }
 }
