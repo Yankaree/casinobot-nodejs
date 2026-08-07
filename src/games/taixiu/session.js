@@ -1,6 +1,6 @@
 const { EventEmitter } = require('events');
 const { SessionModel, BetModel, ConfigModel, UserModel } = require('../../database/models');
-const { rollDice, calculateResult, isJackpot } = require('./engine');
+const { rollDiceWithWeight, calculateResult, isJackpot, resetHistory } = require('./engine');
 const { processRewards } = require('./reward');
 const config = require('../../config');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -27,6 +27,7 @@ class GameSession extends EventEmitter {
     this.timeLeft = config.game.sessionDuration;
     this.bets = { tai: 0, xiu: 0 };
     this.bettors.clear();
+    resetHistory(this.guildId);
 
     const channel = client.channels.cache.get(this.channelId);
     if (!channel) return;
@@ -194,7 +195,7 @@ class GameSession extends EventEmitter {
 
     await new Promise(r => setTimeout(r, 2000));
 
-    const { d1, d2, d3 } = rollDice();
+    const { d1, d2, d3 } = rollDiceWithWeight(this.guildId);
     const result = calculateResult(d1, d2, d3);
     const jackpot = isJackpot(d1, d2, d3);
 
@@ -219,6 +220,7 @@ class GameSession extends EventEmitter {
   stop() {
     clearTimeout(this.updateTimer);
     this.isActive = false;
+    resetHistory(this.guildId);
   }
 }
 
