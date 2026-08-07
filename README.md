@@ -48,8 +48,9 @@ node deploy-commands.js
 
 | Command | Mô tả |
 |---------|-------|
+| `/help` | Xem danh sách lệnh và hướng dẫn |
 | `/balance` | Xem số dư coin |
-| `/work` | Đi làm kiếm coin (cooldown 1 giờ) |
+| `/work` | Đi làm kiếm coin (cooldown 90 giây) |
 | `/bet tai <amount>` | Đặt cược Tài |
 | `/bet xiu <amount>` | Đặt cược Xỉu |
 | `/jackpot` | Xem jackpot hiện tại |
@@ -72,6 +73,7 @@ node deploy-commands.js
 - Thắng: nhận 120% tiền cược
 - Nổ hũ (1-1-1 hoặc 6-6-6): nhận 140% tiền cược
 - 5% tổng cược mỗi phiên được cộng vào jackpot
+- Random vật lý: streak 2-3 tự nhiên, streak 5+ rất hiếm
 
 ## Tài liệu kỹ thuật
 
