@@ -30,6 +30,9 @@ module.exports = {
     )
     .addSubcommand((sub) =>
       sub.setName('stats').setDescription('Xem thống kê Tài Xỉu')
+    )
+    .addSubcommand((sub) =>
+      sub.setName('tieptuc').setDescription('Tiếp tục game sau khi tạm dừng')
     ),
 
   async execute(interaction) {
@@ -39,6 +42,18 @@ module.exports = {
       const { getStatsEmbed } = require('../games/taixiu/stats');
       const embed = await getStatsEmbed(interaction.guildId);
       return interaction.reply({ embeds: [embed] });
+    }
+
+    if (subcommand === 'tieptuc') {
+      const session = activeSessions.get(interaction.guildId);
+      if (!session) {
+        return interaction.reply({ content: '⚠️ **Thông báo**\nGame chưa được bắt đầu!', ephemeral: true });
+      }
+      if (!session.isPaused) {
+        return interaction.reply({ content: '⚠️ **Thông báo**\nGame chưa tạm dừng!', ephemeral: true });
+      }
+      session.resume(interaction.client);
+      return interaction.reply({ content: '✅ Đã tiếp tục game Tài Xỉu! 🎲' });
     }
 
     const isAdminConfig = config.adminUsers.includes(interaction.user.id);

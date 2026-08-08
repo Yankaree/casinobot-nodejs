@@ -41,7 +41,21 @@ module.exports = {
         });
       }
 
-      if (!session || !session.isActive) {
+      if (!session) {
+        return interaction.reply({
+          content: '❌ **Lỗi**\nPhiên cược chưa bắt đầu! Hãy chờ admin `/taixiu start`',
+          ephemeral: true,
+        });
+      }
+
+      if (session.isPaused) {
+        return interaction.reply({
+          content: '⏸️ **Tạm dừng**\nGame đang tạm dừng! Dùng `/taixiu tieptuc` để tiếp tục',
+          ephemeral: true,
+        });
+      }
+
+      if (!session.isActive) {
         return interaction.reply({
           content: '❌ **Lỗi**\nPhiên cược chưa bắt đầu! Hãy chờ admin `/taixiu start`',
           ephemeral: true,

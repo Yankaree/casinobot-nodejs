@@ -14,6 +14,8 @@ class GameSession extends EventEmitter {
     this.sessionId = null;
     this.isActive = false;
     this.isStopped = false;
+    this.isPaused = false;
+    this.emptyRoundCount = 0;
     this.timeLeft = config.game.sessionDuration;
     this.timer = null;
     this.updateTimer = null;
@@ -21,9 +23,11 @@ class GameSession extends EventEmitter {
     this.message = null;
     this.bets = { tai: 0, xiu: 0 };
     this.bettors = new Map();
+    this._client = null;
   }
 
   async start(client) {
+    this._client = client;
     this.sessionId = await SessionModel.create(this.guildId);
     if (!this.sessionId) {
       console.error('Failed to create session - no ID returned');
@@ -31,6 +35,7 @@ class GameSession extends EventEmitter {
     }
     this.isActive = true;
     this.isStopped = false;
+    this.isPaused = false;
     this.timeLeft = config.game.sessionDuration;
     this.bets = { tai: 0, xiu: 0 };
     this.bettors.clear();
@@ -43,7 +48,7 @@ class GameSession extends EventEmitter {
 
     this._startTime = Date.now();
     this._tickInterval = setInterval(() => {
-      if (this.isStopped) {
+      if (this.isStopped || this.isPaused) {
         clearInterval(this._tickInterval);
         return;
       }
@@ -71,24 +76,39 @@ class GameSession extends EventEmitter {
       xiuBar = formatProgressBar(this.bets.xiu, totalBets, 10);
     }
 
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setTitle('🎲 TÀI XỈU')
-      .setDescription(`**Phiên #${this.sessionId}**\n⏱️ Còn **${formatTime(this.timeLeft)}**`)
-      .addFields(
-        {
-          name: '📈 TÀI',
-          value: `${taiBar} **${formatCoins(this.bets.tai)}** 🪙`,
-          inline: true,
-        },
-        {
-          name: '📉 XỈU',
-          value: `${xiuBar} **${formatCoins(this.bets.xiu)}** 🪙`,
-          inline: true,
-        }
-      )
-      .setColor(config.colors.primary)
-      .setFooter({ text: 'Dùng /bet tai hoặc /bet xiu để đặt cược' })
-      .setTimestamp();
+      .setColor(config.colors.primary);
+
+    if (this.isPaused) {
+      embed.setDescription(
+        `**Phiên #${this.sessionId}**\n\n` +
+        `⏸️ **TẠM DỪNG** - Không ai đặt cược qua ${config.game.maxEmptyRounds} phiên\n` +
+        `Dùng \`/tieptuc\` để tiếp tục`
+      );
+    } else {
+      embed.setDescription(`**Phiên #${this.sessionId}**\n⏱️ Còn **${formatTime(this.timeLeft)}**`);
+    }
+
+    embed.addFields(
+      {
+        name: '📈 TÀI',
+        value: `${taiBar} **${formatCoins(this.bets.tai)}** 🪙`,
+        inline: true,
+      },
+      {
+        name: '📉 XỈU',
+        value: `${xiuBar} **${formatCoins(this.bets.xiu)}** 🪙`,
+        inline: true,
+      }
+    );
+
+    if (!this.isPaused) {
+      embed.setFooter({ text: 'Dùng /bet tai hoặc /bet xiu để đặt cược' });
+    }
+
+    embed.setTimestamp();
+    return embed;
   }
 
   createResultEmbed(d1, d2, d3, result, jackpot, bets) {
@@ -164,6 +184,7 @@ class GameSession extends EventEmitter {
   async addBet(userId, choice, amount) {
     if (!this.isActive) return { success: false, message: 'Phiên đã đóng!' };
     if (this.isStopped) return { success: false, message: 'Game đã dừng!' };
+    if (this.isPaused) return { success: false, message: '⏸️ Game đang tạm dừng! Chờ admin `/tieptuc`' };
     if (amount < 1000) return { success: false, message: 'Mức cược tối thiểu là **1,000** 🪙!' };
 
     if (this.bettors.has(userId)) {
@@ -199,6 +220,8 @@ class GameSession extends EventEmitter {
     const channel = client.channels.cache.get(this.channelId);
 
     if (totalBets === 0) {
+      this.emptyRoundCount++;
+
       if (channel) {
         await channel.send({ embeds: [
           new EmbedBuilder()
@@ -207,6 +230,24 @@ class GameSession extends EventEmitter {
             .setColor(config.colors.info)
         ] });
       }
+
+      if (this.emptyRoundCount >= config.game.maxEmptyRounds) {
+        this.isPaused = true;
+        if (channel) {
+          await channel.send({ embeds: [
+            new EmbedBuilder()
+              .setTitle('🎲 TÀI XỈU - TẠM DỪNG')
+              .setDescription(
+                `**Đã ${config.game.maxEmptyRounds} phiên liên tiếp không ai đặt cược!**\n\n` +
+                `⏸️ Game đang tạm dừng. Dùng \`/tieptuc\` để tiếp tục!`
+              )
+              .setColor(config.colors.info)
+          ] });
+        }
+        this.emit('ended', this.sessionId);
+        return;
+      }
+
       this.emit('ended', this.sessionId);
       this.restartTimer = setTimeout(() => {
         if (!this.isStopped) {
@@ -215,6 +256,8 @@ class GameSession extends EventEmitter {
       }, 3000);
       return;
     }
+
+    this.emptyRoundCount = 0;
 
     if (channel) {
       const rollingEmbed = new EmbedBuilder()
@@ -252,9 +295,32 @@ class GameSession extends EventEmitter {
     }, 5000);
   }
 
+  pause() {
+    if (this.isStopped || !this.isActive) return false;
+    this.isPaused = true;
+    if (this._tickInterval) {
+      clearInterval(this._tickInterval);
+      this._tickInterval = null;
+    }
+    if (this.message) {
+      this.message.edit({ embeds: [this.createEmbed()] }).catch(() => {});
+    }
+    return true;
+  }
+
+  resume(client) {
+    if (!this.isPaused) return false;
+    this.isPaused = false;
+    this.emptyRoundCount = 0;
+    this.sessionId = null;
+    this.start(client);
+    return true;
+  }
+
   stop() {
     this.isStopped = true;
     this.isActive = false;
+    this.isPaused = false;
     if (this._tickInterval) {
       clearInterval(this._tickInterval);
       this._tickInterval = null;

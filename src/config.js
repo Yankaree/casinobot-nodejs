@@ -14,6 +14,7 @@ module.exports = {
     jackpotChance2: [6, 6, 6], // Triple 6
     jackpotPercent: 0.05,
     startingCoins: 10000,
+    maxEmptyRounds: 3,
   },
 
   work: {
