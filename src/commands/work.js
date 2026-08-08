@@ -10,8 +10,12 @@ module.exports = {
     .setDescription('Đi làm kiếm thêm coin'),
 
   async execute(interaction) {
+    if (!interaction.guildId) {
+      return interaction.reply({ content: '❌ Lệnh này chỉ dùng được trong server!', ephemeral: true });
+    }
+
     try {
-      const lastWork = await UserModel.getLastWork(interaction.user.id);
+      const lastWork = await UserModel.getLastWork(interaction.guildId, interaction.user.id);
       if (lastWork) {
         try {
           let lastTs;
@@ -38,13 +42,14 @@ module.exports = {
       }
 
       const reward = crypto.randomInt(config.work.minReward, config.work.maxReward + 1);
-      await UserModel.addCoins(interaction.user.id, reward);
+      await UserModel.addCoins(interaction.guildId, interaction.user.id, reward);
       await UserModel.setLastWork(
+        interaction.guildId,
         interaction.user.id,
         new Date().toISOString().slice(0, 19).replace('T', ' ')
       );
 
-      const balance = await UserModel.getBalance(interaction.user.id);
+      const balance = await UserModel.getBalance(interaction.guildId, interaction.user.id);
 
       const embed = new EmbedBuilder()
         .setTitle('💼 ĐI LÀM')

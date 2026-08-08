@@ -2,20 +2,24 @@
 
 SQLite Cloud database (`SQLITECLOUD_URI` in `.env`), accessed through the
 singleton connection in `src/database/database.js`. Schema is created at
-startup with `CREATE TABLE IF NOT EXISTS`.
+startup (tables are dropped and recreated on each start).
 
 ## Schema
 
 ### `users`
 
-| Column        | Type     | Notes                                    |
-|---------------|----------|------------------------------------------|
-| `id`          | INTEGER  | PK, autoincrement                        |
-| `discord_id`  | TEXT     | UNIQUE, NOT NULL — Discord user id       |
-| `coin`        | INTEGER  | Balance, default `10000`                 |
-| `win_count`   | INTEGER  | Wins, default `0`                        |
-| `lose_count`  | INTEGER  | Losses, default `0`                      |
-| `created_at`  | DATETIME | Default `CURRENT_TIMESTAMP`              |
+| Column        | Type     | Notes                                            |
+|---------------|----------|--------------------------------------------------|
+| `id`          | INTEGER  | PK, autoincrement                                |
+| `guild_id`    | TEXT     | NOT NULL — Discord server id                     |
+| `discord_id`  | TEXT     | NOT NULL — Discord user id                       |
+| `coin`        | INTEGER  | Balance, default `10000`                         |
+| `win_count`   | INTEGER  | Wins, default `0`                                |
+| `lose_count`  | INTEGER  | Losses, default `0`                              |
+| `last_work_at`| DATETIME | Cooldown tracker for `/work`                     |
+| `created_at`  | DATETIME | Default `CURRENT_TIMESTAMP`                      |
+
+**UNIQUE(guild_id, discord_id)** — each user has separate coins per server.
 
 ### `sessions`
 
@@ -55,8 +59,8 @@ startup with `CREATE TABLE IF NOT EXISTS`.
 
 All models call `getDb().sql(...)` directly; no ORM is used. Key operations:
 
-- **Users**: rows are lazily created on first touch via `getOrCreate(discordId)`.
-  Coin changes use `UPDATE ... coin = coin ± ?`.
+- **Users**: rows are lazily created on first touch via `getOrCreate(guildId, discordId)`.
+  Each user has separate coins/stats per guild. Coin changes use `UPDATE ... coin = coin ± ?`.
 - **Sessions**: `create()` returns `lastInsertRowid` for the active round;
   `finish()` writes dice/result/total once the round ends. `getStats()` counts
   totals per result; `getRecent()` lists finished rounds newest-first.

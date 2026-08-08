@@ -5,7 +5,7 @@ let db = null;
 let keepaliveInterval = null;
 let isReconnecting = false;
 
-const KEEPALIVE_INTERVAL_MS = 30_000; // 30 seconds
+const KEEPALIVE_INTERVAL_MS = 30_000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY_MS = 2_000;
 
@@ -24,11 +24,14 @@ async function connectDb() {
   await db.sql(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      discord_id TEXT UNIQUE NOT NULL,
+      guild_id TEXT NOT NULL,
+      discord_id TEXT NOT NULL,
       coin INTEGER DEFAULT 10000,
       win_count INTEGER DEFAULT 0,
       lose_count INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      last_work_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(guild_id, discord_id)
     )
   `);
 
@@ -67,16 +70,6 @@ async function connectDb() {
       jackpot_balance INTEGER DEFAULT 0
     )
   `);
-
-  try {
-    const cols = await db.sql("PRAGMA table_info(users)");
-    const hasLastWork = Array.isArray(cols) && cols.some(c => c && c.name === 'last_work_at');
-    if (!hasLastWork) {
-      await db.sql('ALTER TABLE users ADD COLUMN last_work_at DATETIME');
-    }
-  } catch (e) {
-    console.warn('Warning: Could not check/add last_work_at column:', e.message);
-  }
 
   console.log('✅ Connected to SQLite Cloud');
   startKeepalive();

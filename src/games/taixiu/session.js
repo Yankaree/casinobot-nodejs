@@ -190,16 +190,16 @@ class GameSession extends EventEmitter {
       return { success: false, message: 'Bạn đã đặt cược rồi!' };
     }
 
-    const balance = await UserModel.getBalance(userId);
+    const balance = await UserModel.getBalance(this.guildId, userId);
     if (balance < amount) {
       return { success: false, message: `Không đủ coin! Số dư: ${formatCoins(balance)} 🪙` };
     }
 
-    await UserModel.removeCoins(userId, amount);
+    await UserModel.removeCoins(this.guildId, userId, amount);
     this.bets[choice] += amount;
     this.bettors.set(userId, { choice, amount });
 
-    const user = await UserModel.getOrCreate(userId);
+    const user = await UserModel.getOrCreate(this.guildId, userId);
     await BetModel.create(this.sessionId, user.id, choice, amount);
 
     return { success: true };

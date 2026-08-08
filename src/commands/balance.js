@@ -12,10 +12,14 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (!interaction.guildId) {
+      return interaction.reply({ content: '❌ Lệnh này chỉ dùng được trong server!', ephemeral: true });
+    }
+
     try {
       const targetUser = interaction.options.getUser('user') || interaction.user;
-      const user = await UserModel.getOrCreate(targetUser.id);
-      const betStats = await BetModel.getUserStats(targetUser.id);
+      const user = await UserModel.getOrCreate(interaction.guildId, targetUser.id);
+      const betStats = await BetModel.getUserStats(interaction.guildId, targetUser.id);
 
       const totalGames = user.win_count + user.lose_count;
       const winRate = totalGames > 0 ? Math.round((user.win_count / totalGames) * 100) : 0;

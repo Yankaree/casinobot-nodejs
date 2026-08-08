@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { ConfigModel } = require('../database/models');
 const { getActiveSession } = require('./taixiu');
 const config = require('../config');

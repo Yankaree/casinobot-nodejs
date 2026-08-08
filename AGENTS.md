@@ -20,7 +20,7 @@ All user-facing strings (embed text, error messages, embed titles) are in **Viet
 
 ## Architecture
 
-Multi-guild Discord bot. Game state lives in-memory (`activeSessions` Map in `src/commands/taixiu.js`), keyed by guildId. Jackpot is per-guild in the database. A bot restart clears all active game sessions.
+Multi-guild Discord bot. Game state lives in-memory (`activeSessions` Map in `src/commands/taixiu.js`), keyed by guildId. Jackpot is per-guild in the database. User balances are per-guild (same user, different coins on each server). A bot restart clears all active game sessions.
 
 - **Entry**: `src/index.js` → loads commands, boots DB, starts HTTP keepalive server
 - **Config**: `src/config.js` — all game params, admin IDs, colors

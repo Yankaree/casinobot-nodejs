@@ -51,12 +51,12 @@ Creates the singleton SQLite Cloud `Database`, runs the DDL for all tables
 ### `src/database/models.js`
 Model objects wrapping SQL:
 
-- **`UserModel`** — `getOrCreate(discordId)`, `getBalance`, `addCoins`,
-  `removeCoins`, `addWin`, `addLose`, `setCoins`.
+- **`UserModel`** — `getOrCreate(guildId, discordId)`, `getBalance`, `addCoins`,
+  `removeCoins`, `addWin`, `addLose`, `setCoins`, `getLastWork`, `setLastWork`.
 - **`SessionModel`** — `create(guildId)`, `finish(...)`, `getById`,
   `getRecent(guildId, limit)`, `getStats(guildId)`, `getTotalBets(sessionId)`.
 - **`BetModel`** — `create(sessionId,userId,choice,amount)`,
-  `updateResult(...)`, `getSessionBets(sessionId)`, `getUserStats(discordId)`.
+  `updateResult(...)`, `getSessionBets(sessionId)`, `getUserStats(guildId, discordId)`.
 - **`ConfigModel`** — `get(guildId)`, `setChannel`, `getChannel`,
   `getJackpot`, `addJackpot`, `resetJackpot`.
 

@@ -37,10 +37,10 @@ async function processRewards(guildId, sessionId, result, jackpot, bets) {
 
     const finalPayout = fromLosers + fromJackpot;
     if (finalPayout > 0) {
-      await UserModel.addCoins(bet.discord_id, finalPayout);
+      await UserModel.addCoins(guildId, bet.discord_id, finalPayout);
     }
 
-    await UserModel.addWin(bet.discord_id);
+    await UserModel.addWin(guildId, bet.discord_id);
     await BetModel.updateResult(sessionId, bet.user_id, true, finalPayout);
   }
 
@@ -49,7 +49,7 @@ async function processRewards(guildId, sessionId, result, jackpot, bets) {
   }
 
   for (const bet of losers) {
-    await UserModel.addLose(bet.discord_id);
+    await UserModel.addLose(guildId, bet.discord_id);
     await BetModel.updateResult(sessionId, bet.user_id, false, 0);
   }
 }

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { UserModel, ConfigModel } = require('../database/models');
 const { formatCoins } = require('../utils/formatter');
 const config = require('../config');
@@ -42,8 +42,8 @@ module.exports = {
         if (amount > 10000000) {
           return interaction.reply({ content: '❌ **Lỗi**\nSố coin tối đa là **10,000,000**!', ephemeral: true });
         }
-        await UserModel.addCoins(user.id, amount);
-        const newBalance = await UserModel.getBalance(user.id);
+        await UserModel.addCoins(interaction.guildId, user.id, amount);
+        const newBalance = await UserModel.getBalance(interaction.guildId, user.id);
         return interaction.reply({
           content: `✅ **Thành công**\nĐã tặng **${formatCoins(amount)}** 🪙 cho ${user}\n💰 Số dư mới: **${formatCoins(newBalance)}** 🪙`,
         });

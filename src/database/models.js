@@ -1,74 +1,101 @@
 const { getDb, queryWithRetry } = require('./database');
 
 const UserModel = {
-  async getOrCreate(discordId) {
+  async getOrCreate(guildId, discordId) {
     return queryWithRetry(async () => {
       const db = getDb();
-      const rows = await db.sql('SELECT * FROM users WHERE discord_id = ?', discordId);
+      const rows = await db.sql(
+        'SELECT * FROM users WHERE guild_id = ? AND discord_id = ?',
+        guildId, discordId
+      );
       if (rows.length > 0) return rows[0];
 
-      await db.sql('INSERT INTO users (discord_id) VALUES (?)', discordId);
-      const newRows = await db.sql('SELECT * FROM users WHERE discord_id = ?', discordId);
+      await db.sql(
+        'INSERT INTO users (guild_id, discord_id) VALUES (?, ?)',
+        guildId, discordId
+      );
+      const newRows = await db.sql(
+        'SELECT * FROM users WHERE guild_id = ? AND discord_id = ?',
+        guildId, discordId
+      );
       return newRows[0];
     });
   },
 
-  async getBalance(discordId) {
-    const user = await this.getOrCreate(discordId);
+  async getBalance(guildId, discordId) {
+    const user = await this.getOrCreate(guildId, discordId);
     return user.coin;
   },
 
-  async addCoins(discordId, amount) {
+  async addCoins(guildId, discordId, amount) {
     return queryWithRetry(async () => {
       const db = getDb();
-      await this.getOrCreate(discordId);
-      await db.sql('UPDATE users SET coin = coin + ? WHERE discord_id = ?', amount, discordId);
-      return this.getBalance(discordId);
+      await this.getOrCreate(guildId, discordId);
+      await db.sql(
+        'UPDATE users SET coin = coin + ? WHERE guild_id = ? AND discord_id = ?',
+        amount, guildId, discordId
+      );
+      return this.getBalance(guildId, discordId);
     });
   },
 
-  async removeCoins(discordId, amount) {
+  async removeCoins(guildId, discordId, amount) {
     return queryWithRetry(async () => {
       const db = getDb();
-      await this.getOrCreate(discordId);
-      await db.sql('UPDATE users SET coin = coin - ? WHERE discord_id = ?', amount, discordId);
-      return this.getBalance(discordId);
+      await this.getOrCreate(guildId, discordId);
+      await db.sql(
+        'UPDATE users SET coin = coin - ? WHERE guild_id = ? AND discord_id = ?',
+        amount, guildId, discordId
+      );
+      return this.getBalance(guildId, discordId);
     });
   },
 
-  async addWin(discordId) {
+  async addWin(guildId, discordId) {
     return queryWithRetry(async () => {
       const db = getDb();
-      await this.getOrCreate(discordId);
-      await db.sql('UPDATE users SET win_count = win_count + 1 WHERE discord_id = ?', discordId);
+      await this.getOrCreate(guildId, discordId);
+      await db.sql(
+        'UPDATE users SET win_count = win_count + 1 WHERE guild_id = ? AND discord_id = ?',
+        guildId, discordId
+      );
     });
   },
 
-  async addLose(discordId) {
+  async addLose(guildId, discordId) {
     return queryWithRetry(async () => {
       const db = getDb();
-      await this.getOrCreate(discordId);
-      await db.sql('UPDATE users SET lose_count = lose_count + 1 WHERE discord_id = ?', discordId);
+      await this.getOrCreate(guildId, discordId);
+      await db.sql(
+        'UPDATE users SET lose_count = lose_count + 1 WHERE guild_id = ? AND discord_id = ?',
+        guildId, discordId
+      );
     });
   },
 
-  async setCoins(discordId, amount) {
+  async setCoins(guildId, discordId, amount) {
     return queryWithRetry(async () => {
       const db = getDb();
-      await this.getOrCreate(discordId);
-      await db.sql('UPDATE users SET coin = ? WHERE discord_id = ?', amount, discordId);
+      await this.getOrCreate(guildId, discordId);
+      await db.sql(
+        'UPDATE users SET coin = ? WHERE guild_id = ? AND discord_id = ?',
+        amount, guildId, discordId
+      );
     });
   },
 
-  async getLastWork(discordId) {
-    const user = await this.getOrCreate(discordId);
+  async getLastWork(guildId, discordId) {
+    const user = await this.getOrCreate(guildId, discordId);
     return user.last_work_at || null;
   },
 
-  async setLastWork(discordId, time) {
+  async setLastWork(guildId, discordId, time) {
     return queryWithRetry(async () => {
       const db = getDb();
-      await db.sql('UPDATE users SET last_work_at = ? WHERE discord_id = ?', time, discordId);
+      await db.sql(
+        'UPDATE users SET last_work_at = ? WHERE guild_id = ? AND discord_id = ?',
+        time, guildId, discordId
+      );
     });
   },
 };
@@ -172,10 +199,13 @@ const BetModel = {
     });
   },
 
-  async getUserStats(discordId) {
+  async getUserStats(guildId, discordId) {
     return queryWithRetry(async () => {
       const db = getDb();
-      const userRows = await db.sql('SELECT id FROM users WHERE discord_id = ?', discordId);
+      const userRows = await db.sql(
+        'SELECT id FROM users WHERE guild_id = ? AND discord_id = ?',
+        guildId, discordId
+      );
       if (userRows.length === 0) return { totalBets: 0, totalWon: 0, totalLost: 0 };
 
       const rows = await db.sql(
