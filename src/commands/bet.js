@@ -23,6 +23,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (!interaction.guildId) {
+      return interaction.reply({ content: '❌ Lệnh này chỉ dùng được trong server!', ephemeral: true });
+    }
     try {
       const session = getActiveSession(interaction.guildId);
       const channelId = await ConfigModel.getChannel(interaction.guildId);

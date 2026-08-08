@@ -23,6 +23,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (!interaction.guildId) {
+      return interaction.reply({ content: '❌ Lệnh này chỉ dùng được trong server!', ephemeral: true });
+    }
     try {
       if (!config.adminUsers.includes(interaction.user.id)) {
         return interaction.reply({ content: '❌ **Lỗi quyền**\nChỉ admin mới dùng được lệnh này!', ephemeral: true });

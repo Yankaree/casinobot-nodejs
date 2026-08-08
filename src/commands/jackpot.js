@@ -7,6 +7,9 @@ module.exports = {
     .setDescription('Xem jackpot hiện tại'),
 
   async execute(interaction) {
+    if (!interaction.guildId) {
+      return interaction.reply({ content: '❌ Lệnh này chỉ dùng được trong server!', ephemeral: true });
+    }
     const embed = await getJackpotEmbed(interaction.guildId);
     return interaction.reply({ embeds: [embed] });
   },

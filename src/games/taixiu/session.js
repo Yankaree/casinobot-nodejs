@@ -3,7 +3,7 @@ const { SessionModel, BetModel, ConfigModel, UserModel } = require('../../databa
 const { rollDiceWithWeight, calculateResult, isJackpot, resetHistory } = require('./engine');
 const { processRewards } = require('./reward');
 const config = require('../../config');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const { formatCoins, formatDice, formatProgressBar, formatTime, getResultEmoji, getResultText } = require('../../utils/formatter');
 
 class GameSession extends EventEmitter {
@@ -39,7 +39,6 @@ class GameSession extends EventEmitter {
     this.timeLeft = config.game.sessionDuration;
     this.bets = { tai: 0, xiu: 0 };
     this.bettors.clear();
-    resetHistory(this.guildId);
 
     const channel = client.channels.cache.get(this.channelId);
     if (!channel) return;
@@ -59,7 +58,7 @@ class GameSession extends EventEmitter {
       }
       if (this.timeLeft <= 0) {
         clearInterval(this._tickInterval);
-        this.end(client);
+        this.end(client).catch((err) => console.error('Session end error:', err));
       }
     }, 1000);
   }
@@ -308,12 +307,12 @@ class GameSession extends EventEmitter {
     return true;
   }
 
-  resume(client) {
+  async resume(client) {
     if (!this.isPaused) return false;
     this.isPaused = false;
     this.emptyRoundCount = 0;
     this.sessionId = null;
-    this.start(client);
+    await this.start(client);
     return true;
   }
 

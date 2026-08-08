@@ -27,7 +27,6 @@ cp .env.example .env
 ```
 DISCORD_TOKEN=your_bot_token_here
 CLIENT_ID=your_bot_client_id_here
-GUILD_ID=your_guild_id_here
 ```
 
 ## Đăng ký commands

@@ -18,7 +18,7 @@ Exports: `createServer(client)`.
 ### `src/config.js`
 Centralized configuration loaded from environment plus hard-coded game rules:
 
-- `token`, `clientId`, `guildId`, `sqliteUri` — from `.env`.
+- `token`, `clientId`, `sqliteUri` — from `.env`.
 - `game.sessionDuration` — seconds per round (50).
 - `game.betMultiplier` — normal win payout factor (1.2).
 - `game.jackpotMultiplier` — jackpot payout factor (1.4).
@@ -30,8 +30,8 @@ Centralized configuration loaded from environment plus hard-coded game rules:
 
 ### `deploy-commands.js`
 Standalone script. Reads `.env`, scans `src/commands/`, serialises every
-command's `data` to JSON, and bulk-registers them as guild commands via the
-Discord REST API. Requires `DISCORD_TOKEN`, `CLIENT_ID`, `GUILD_ID`.
+command's `data` to JSON, and bulk-registers them as global commands via the
+Discord REST API. Requires `DISCORD_TOKEN`, `CLIENT_ID`.
 
 ### `src/utils/formatter.js`
 Pure formatting helpers:

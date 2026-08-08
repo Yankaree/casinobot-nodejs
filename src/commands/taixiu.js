@@ -36,6 +36,10 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (!interaction.guildId) {
+      return interaction.reply({ content: '❌ Lệnh này chỉ dùng được trong server!', ephemeral: true });
+    }
+
     const subcommand = interaction.options.getSubcommand();
 
     if (subcommand === 'stats') {
@@ -52,7 +56,7 @@ module.exports = {
       if (!session.isPaused) {
         return interaction.reply({ content: '⚠️ **Thông báo**\nGame chưa tạm dừng!', ephemeral: true });
       }
-      session.resume(interaction.client);
+      await session.resume(interaction.client);
       return interaction.reply({ content: '✅ Đã tiếp tục game Tài Xỉu! 🎲' });
     }
 
@@ -86,7 +90,12 @@ module.exports = {
         }
         const session = new GameSession(interaction.guildId, channelId);
         activeSessions.set(interaction.guildId, session);
-        await session.start(interaction.client);
+        try {
+          await session.start(interaction.client);
+        } catch (err) {
+          activeSessions.delete(interaction.guildId);
+          throw err;
+        }
         return interaction.reply({ content: '✅ Đã bắt đầu game Tài Xỉu!', ephemeral: true });
       } finally {
         startLocks.delete(interaction.guildId);
