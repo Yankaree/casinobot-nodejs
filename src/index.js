@@ -71,7 +71,18 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 SIGTERM received, shutting down...');
+  await closeDb();
+  client.destroy();
+  process.exit(0);
+});
+
 process.on('unhandledRejection', (error) => {
+  if (error?.errorCode === 'ERR_CONNECTION_ENDED' || error?.errorCode === 'ERR_CONNECTION_NOT_ESTABLISHED') {
+    console.warn('[Process] Database connection error caught (will auto-reconnect):', error.errorCode);
+    return;
+  }
   console.error('Unhandled promise rejection:', error);
 });
 
