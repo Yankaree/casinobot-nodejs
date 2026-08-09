@@ -6,7 +6,6 @@ const config = require('./config');
 const { connectDb, closeDb } = require('./database/database');
 const { createServer } = require('./server');
 const { setupDiscordLogHook } = require('./utils/discordLogHook');
-const { setupGlobalChatListener } = require('./games/global-taixiu/chat/listener');
 
 setupDiscordLogHook();
 
@@ -39,6 +38,7 @@ client.once('ready', async () => {
   console.log(`✅ Bot is ready! Logged in as ${client.user.tag}`);
   console.log(`📌 Serving ${client.guilds.cache.size} guild(s)`);
   try {
+    const { setupGlobalChatListener } = require('./games/global-taixiu/chat/listener');
     await setupGlobalChatListener(client);
   } catch (err) {
     console.error('[Ready] setupGlobalChatListener failed:', err.message);
@@ -66,7 +66,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.reply(reply);
       }
     } catch (e) {
-      console.error('Error sending error reply:', e);
+      // ignore
     }
   }
 });
@@ -87,24 +87,31 @@ process.on('SIGTERM', async () => {
 
 process.on('unhandledRejection', (error) => {
   if (error?.errorCode === 'ERR_CONNECTION_ENDED' || error?.errorCode === 'ERR_CONNECTION_NOT_ESTABLISHED') {
-    console.warn('[Process] Database connection error caught (will auto-reconnect):', error.errorCode);
     return;
   }
   console.error('Unhandled promise rejection:', error);
 });
 
-(async () => {
-  try {
-    createServer(client);
-    client.login(config.token).catch((err) => {
-      console.error('Failed to login Discord:', err);
-      process.exit(1);
-    });
-    connectDb().catch((err) => {
-      console.error('Failed to connect DB:', err.message);
-    });
-  } catch (error) {
-    console.error('Failed to start bot:', error);
-    process.exit(1);
+function startBot() {
+  const PORT = process.env.PORT || 3000;
+  createServer(client);
+
+  async function tryLogin() {
+    try {
+      await client.login(config.token);
+    } catch (err) {
+      console.error(`[Bot] Login failed: ${err.message}. Retrying in 30s...`);
+      setTimeout(tryLogin, 30_000);
+    }
   }
-})();
+
+  tryLogin();
+
+  connectDb().then(() => {
+    console.log('[Bot] Database connected');
+  }).catch((err) => {
+    console.error('[Bot] Database connection failed:', err.message);
+  });
+}
+
+startBot();
