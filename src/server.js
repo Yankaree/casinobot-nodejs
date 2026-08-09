@@ -114,6 +114,9 @@ function createServer(client) {
   });
 
   const PORT = process.env.PORT || 3000;
+  server.on('error', (err) => {
+    console.error(`[Server] Port ${PORT} error:`, err.message);
+  });
   server.listen(PORT, () => {
     console.log(`🌐 Web server running on port ${PORT}`);
   });

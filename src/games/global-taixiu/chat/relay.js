@@ -32,9 +32,15 @@ async function broadcastMessage(client, message, sourceChannelId) {
 
   for (const channelId of targetChannelIds) {
     try {
-      const channel = await client.channels.fetch(channelId);
+      const channel = await Promise.race([
+        client.channels.fetch(channelId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('fetch timeout')), 10000)),
+      ]);
       if (channel && channel.isTextBased()) {
-        await channel.send({ embeds: [embed] });
+        await Promise.race([
+          channel.send({ embeds: [embed] }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('send timeout')), 10000)),
+        ]);
       }
     } catch (err) {
       console.error(`[GlobalChat] Failed to relay to channel ${channelId}:`, err.message);

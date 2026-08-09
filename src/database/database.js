@@ -6,17 +6,121 @@ let keepaliveInterval = null;
 let isReconnecting = false;
 
 const KEEPALIVE_INTERVAL_MS = 30_000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_DELAY_MS = 2_000;
+const SQL_TIMEOUT_MS = 10_000;
 
 const DEFAULT_JACKPOT = 100_000_000;
 
-const CONNECT_TIMEOUT_MS = 15_000;
+const SCHEMA_SQL = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    discord_id TEXT NOT NULL,
+    coin INTEGER DEFAULT 10000,
+    win_count INTEGER DEFAULT 0,
+    lose_count INTEGER DEFAULT 0,
+    last_work_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(guild_id, discord_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS config (
+    guild_id TEXT PRIMARY KEY,
+    taixiu_channel_id TEXT,
+    baucua_channel_id TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS jackpots (
+    guild_id TEXT NOT NULL,
+    game_name TEXT NOT NULL,
+    balance INTEGER DEFAULT ${DEFAULT_JACKPOT},
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (guild_id, game_name)
+  )`,
+  `CREATE TABLE IF NOT EXISTS taixiu_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    dice1 INTEGER,
+    dice2 INTEGER,
+    dice3 INTEGER,
+    result TEXT,
+    total_bet INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS taixiu_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    choice TEXT NOT NULL CHECK(choice IN ('tai', 'xiu')),
+    amount INTEGER NOT NULL,
+    won INTEGER DEFAULT 0,
+    payout INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES taixiu_sessions(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS baucua_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    result_1 TEXT,
+    result_2 TEXT,
+    result_3 TEXT,
+    total_bet INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS baucua_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    animal TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    won INTEGER DEFAULT 0,
+    payout INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES baucua_sessions(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS global_taixiu_channels (
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    PRIMARY KEY (guild_id, channel_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS global_taixiu_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dice1 INTEGER,
+    dice2 INTEGER,
+    dice3 INTEGER,
+    result TEXT,
+    total_bet INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS global_taixiu_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    guild_id TEXT NOT NULL,
+    choice TEXT NOT NULL CHECK(choice IN ('tai', 'xiu')),
+    amount INTEGER NOT NULL,
+    won INTEGER DEFAULT 0,
+    payout INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES global_taixiu_sessions(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`,
+];
+
+function sqlWithTimeout(connection, sql, params) {
+  return Promise.race([
+    params ? connection.sql(sql, params) : connection.sql(sql),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('SQL query timed out')), SQL_TIMEOUT_MS)
+    ),
+  ]);
+}
 
 async function connectDb() {
   if (db) {
     try {
-      await db.sql('SELECT 1');
+      await sqlWithTimeout(db, 'SELECT 1');
       return db;
     } catch {
       db = null;
@@ -24,166 +128,21 @@ async function connectDb() {
   }
 
   const connection = new Database(config.sqliteUri);
-  await Promise.race([
-    connection.sql('SELECT 1'),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('SQLite Cloud connection timed out')), CONNECT_TIMEOUT_MS)),
-  ]);
+
+  await sqlWithTimeout(connection, 'SELECT 1');
   db = connection;
 
-  // ═══════════════════════════════════════════
-  // SHARED TABLES
-  // ═══════════════════════════════════════════
+  for (const sql of SCHEMA_SQL) {
+    await sqlWithTimeout(db, sql);
+  }
 
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      discord_id TEXT NOT NULL,
-      coin INTEGER DEFAULT 10000,
-      win_count INTEGER DEFAULT 0,
-      lose_count INTEGER DEFAULT 0,
-      last_work_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(guild_id, discord_id)
-    )
-  `);
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS config (
-      guild_id TEXT PRIMARY KEY,
-      taixiu_channel_id TEXT,
-      baucua_channel_id TEXT
-    )
-  `);
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS jackpots (
-      guild_id TEXT NOT NULL,
-      game_name TEXT NOT NULL,
-      balance INTEGER DEFAULT ${DEFAULT_JACKPOT},
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (guild_id, game_name)
-    )
-  `);
-
-  // ═══════════════════════════════════════════
-  // TAI XIU TABLES
-  // ═══════════════════════════════════════════
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS taixiu_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      dice1 INTEGER,
-      dice2 INTEGER,
-      dice3 INTEGER,
-      result TEXT,
-      total_bet INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS taixiu_bets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      choice TEXT NOT NULL CHECK(choice IN ('tai', 'xiu')),
-      amount INTEGER NOT NULL,
-      won INTEGER DEFAULT 0,
-      payout INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (session_id) REFERENCES taixiu_sessions(id),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `);
-
-  // ═══════════════════════════════════════════
-  // BAU CUA TABLES
-  // ═══════════════════════════════════════════
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS baucua_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      result_1 TEXT,
-      result_2 TEXT,
-      result_3 TEXT,
-      total_bet INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS baucua_bets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      animal TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      won INTEGER DEFAULT 0,
-      payout INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (session_id) REFERENCES baucua_sessions(id),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `);
-
-  // ═══════════════════════════════════════════
-  // GLOBAL TAI XIU CHANNELS
-  // ═══════════════════════════════════════════
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS global_taixiu_channels (
-      guild_id TEXT NOT NULL,
-      channel_id TEXT NOT NULL,
-      PRIMARY KEY (guild_id, channel_id)
-    )
-  `);
-
-  // ═══════════════════════════════════════════
-  // GLOBAL TAI XIU TABLES
-  // ═══════════════════════════════════════════
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS global_taixiu_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      dice1 INTEGER,
-      dice2 INTEGER,
-      dice3 INTEGER,
-      result TEXT,
-      total_bet INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await db.sql(`
-    CREATE TABLE IF NOT EXISTS global_taixiu_bets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      guild_id TEXT NOT NULL,
-      choice TEXT NOT NULL CHECK(choice IN ('tai', 'xiu')),
-      amount INTEGER NOT NULL,
-      won INTEGER DEFAULT 0,
-      payout INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (session_id) REFERENCES global_taixiu_sessions(id),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `);
-
-  // ═══════════════════════════════════════════
-  // SEED DEFAULT JACKPOTS
-  // ═══════════════════════════════════════════
-
-  const guilds = await db.sql('SELECT DISTINCT guild_id FROM users');
+  const guilds = await sqlWithTimeout(db, 'SELECT DISTINCT guild_id FROM users');
   for (const row of guilds) {
-    await db.sql(
+    await sqlWithTimeout(db,
       `INSERT OR IGNORE INTO jackpots (guild_id, game_name, balance) VALUES (?, 'taixiu', ${DEFAULT_JACKPOT})`,
       row.guild_id
     );
-    await db.sql(
+    await sqlWithTimeout(db,
       `INSERT OR IGNORE INTO jackpots (guild_id, game_name, balance) VALUES (?, 'baucua', ${DEFAULT_JACKPOT})`,
       row.guild_id
     );
@@ -199,7 +158,7 @@ function startKeepalive() {
   keepaliveInterval = setInterval(async () => {
     if (!db || isReconnecting) return;
     try {
-      await db.sql('SELECT 1');
+      await sqlWithTimeout(db, 'SELECT 1');
     } catch (err) {
       console.warn('[Keepalive] Connection lost, attempting reconnect...');
       await reconnectDb();
@@ -225,7 +184,7 @@ async function reconnectDb() {
         db = null;
       }
       db = new Database(config.sqliteUri);
-      await db.sql('SELECT 1');
+      await sqlWithTimeout(db, 'SELECT 1');
       console.log(`✅ Reconnected to SQLite Cloud (attempt ${attempt})`);
       isReconnecting = false;
       return db;
@@ -273,4 +232,4 @@ async function closeDb() {
   }
 }
 
-module.exports = { connectDb, getDb, closeDb, queryWithRetry };
+module.exports = { connectDb, getDb, closeDb, queryWithRetry, sqlWithTimeout };

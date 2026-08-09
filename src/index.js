@@ -38,7 +38,11 @@ for (const file of commandFiles) {
 client.once('ready', async () => {
   console.log(`✅ Bot is ready! Logged in as ${client.user.tag}`);
   console.log(`📌 Serving ${client.guilds.cache.size} guild(s)`);
-  await setupGlobalChatListener(client);
+  try {
+    await setupGlobalChatListener(client);
+  } catch (err) {
+    console.error('[Ready] setupGlobalChatListener failed:', err.message);
+  }
 });
 
 client.on('interactionCreate', async (interaction) => {
@@ -97,7 +101,7 @@ process.on('unhandledRejection', (error) => {
       process.exit(1);
     });
     connectDb().catch((err) => {
-      console.error('Failed to connect DB:', err);
+      console.error('Failed to connect DB:', err.message);
     });
   } catch (error) {
     console.error('Failed to start bot:', error);

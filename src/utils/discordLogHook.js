@@ -25,6 +25,7 @@ async function sendToWebhook(text) {
           path: url.pathname,
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+          timeout: 10000,
         }, (res) => {
           let body = '';
           res.on('data', c => body += c);
@@ -38,6 +39,7 @@ async function sendToWebhook(text) {
           });
         });
         req.on('error', reject);
+        req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
         req.write(data);
         req.end();
       });
