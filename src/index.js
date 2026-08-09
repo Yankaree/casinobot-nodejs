@@ -6,6 +6,7 @@ const config = require('./config');
 const { connectDb, closeDb } = require('./database/database');
 const { createServer } = require('./server');
 const { setupDiscordLogHook } = require('./utils/discordLogHook');
+const { setupGlobalChatListener } = require('./games/global-taixiu/chat/listener');
 
 setupDiscordLogHook();
 
@@ -13,6 +14,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -33,9 +35,10 @@ for (const file of commandFiles) {
   }
 }
 
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`✅ Bot is ready! Logged in as ${client.user.tag}`);
   console.log(`📌 Serving ${client.guilds.cache.size} guild(s)`);
+  await setupGlobalChatListener(client);
 });
 
 client.on('interactionCreate', async (interaction) => {

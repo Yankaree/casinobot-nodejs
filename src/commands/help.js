@@ -22,6 +22,19 @@ module.exports = {
           inline: false,
         },
         {
+          name: '🌐 TÀI XỈU GLOBAL',
+          value: [
+            '`/globaltaixiu bet <tai/xiu> <số coin>` - Đặt cược',
+            '`/globaltaixiu stats` - Xem thống kê game',
+            '`/globaltaixiu jackpot` - Xem hũ Global',
+            '`/globaltaixiu setchannel <kênh>` - Đăng ký kênh Global Chat',
+            '`/globaltaixiu removechannel <kênh>` - Gỡ kênh Global Chat',
+            '`/globaltaixiu listchannels` - Xem danh sách kênh',
+            'Chơi cross-server, tin nhắn relay realtime!',
+          ].join('\n'),
+          inline: false,
+        },
+        {
           name: '🦀 BẦU CUA',
           value: [
             '`/baucua bet <biểu tượng> <số coin>` - Đặt cược',
@@ -50,6 +63,10 @@ module.exports = {
             '`/baucua setchannel <kênh>` - Đặt kênh Bầu Cua',
             '`/baucua start` - Bắt đầu game Bầu Cua',
             '`/baucua stop` - Dừng game Bầu Cua',
+            '`/globaltaixiu setchannel <kênh>` - Đăng ký kênh Global Chat',
+            '`/globaltaixiu removechannel <kênh>` - Gỡ kênh Global Chat',
+            '`/globaltaixiu start` - Bắt đầu Tài Xỉu Global',
+            '`/globaltaixiu stop` - Dừng Tài Xỉu Global',
             '`/admin givecoin <@user> <số coin>` - Tặng coin',
             '`/admin resetjackpot` - Reset jackpot',
             '`/shutdown` - Tắt bot',

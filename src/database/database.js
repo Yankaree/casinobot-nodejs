@@ -123,6 +123,50 @@ async function connectDb() {
   `);
 
   // ═══════════════════════════════════════════
+  // GLOBAL TAI XIU CHANNELS
+  // ═══════════════════════════════════════════
+
+  await db.sql(`
+    CREATE TABLE IF NOT EXISTS global_taixiu_channels (
+      guild_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      PRIMARY KEY (guild_id, channel_id)
+    )
+  `);
+
+  // ═══════════════════════════════════════════
+  // GLOBAL TAI XIU TABLES
+  // ═══════════════════════════════════════════
+
+  await db.sql(`
+    CREATE TABLE IF NOT EXISTS global_taixiu_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      dice1 INTEGER,
+      dice2 INTEGER,
+      dice3 INTEGER,
+      result TEXT,
+      total_bet INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await db.sql(`
+    CREATE TABLE IF NOT EXISTS global_taixiu_bets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      guild_id TEXT NOT NULL,
+      choice TEXT NOT NULL CHECK(choice IN ('tai', 'xiu')),
+      amount INTEGER NOT NULL,
+      won INTEGER DEFAULT 0,
+      payout INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (session_id) REFERENCES global_taixiu_sessions(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  // ═══════════════════════════════════════════
   // SEED DEFAULT JACKPOTS
   // ═══════════════════════════════════════════
 

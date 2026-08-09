@@ -503,6 +503,168 @@ const BaucuaBetModel = {
   },
 };
 
+// ═══════════════════════════════════════════
+// GLOBAL TAI XIU CHANNEL MODEL
+// ═══════════════════════════════════════════
+
+const GlobalTaixiuChannelModel = {
+  async add(guildId, channelId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      await db.sql(
+        'INSERT OR IGNORE INTO global_taixiu_channels (guild_id, channel_id) VALUES (?, ?)',
+        guildId, channelId
+      );
+    });
+  },
+
+  async remove(guildId, channelId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      await db.sql(
+        'DELETE FROM global_taixiu_channels WHERE guild_id = ? AND channel_id = ?',
+        guildId, channelId
+      );
+    });
+  },
+
+  async getAllChannelIds() {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql('SELECT channel_id FROM global_taixiu_channels');
+      return rows.map((r) => r.channel_id);
+    });
+  },
+
+  async isChannelRegistered(guildId, channelId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        'SELECT 1 FROM global_taixiu_channels WHERE guild_id = ? AND channel_id = ?',
+        guildId, channelId
+      );
+      return rows.length > 0;
+    });
+  },
+
+  async getByGuild(guildId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'SELECT channel_id FROM global_taixiu_channels WHERE guild_id = ?',
+        guildId
+      );
+    });
+  },
+};
+
+// ═══════════════════════════════════════════
+// GLOBAL TAI XIU SESSION MODEL
+// ═══════════════════════════════════════════
+
+const GlobalTaixiuSessionModel = {
+  async create() {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const result = await db.sql('INSERT INTO global_taixiu_sessions DEFAULT VALUES');
+      return result.lastID;
+    });
+  },
+
+  async finish(sessionId, dice1, dice2, dice3, result, totalBet) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      await db.sql(
+        'UPDATE global_taixiu_sessions SET dice1 = ?, dice2 = ?, dice3 = ?, result = ?, total_bet = ? WHERE id = ?',
+        dice1, dice2, dice3, result, totalBet, sessionId
+      );
+    });
+  },
+
+  async getById(sessionId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql('SELECT * FROM global_taixiu_sessions WHERE id = ?', sessionId);
+      return rows[0] || null;
+    });
+  },
+
+  async getRecent(limit = 20) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'SELECT * FROM global_taixiu_sessions WHERE result IS NOT NULL ORDER BY id DESC LIMIT ?',
+        limit
+      );
+    });
+  },
+
+  async getStats() {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN result = 'tai' THEN 1 ELSE 0 END) as tai,
+          SUM(CASE WHEN result = 'xiu' THEN 1 ELSE 0 END) as xiu
+         FROM global_taixiu_sessions WHERE result IS NOT NULL`
+      );
+      if (rows.length === 0) return { total: 0, tai: 0, xiu: 0 };
+      return { total: rows[0].total || 0, tai: rows[0].tai || 0, xiu: rows[0].xiu || 0 };
+    });
+  },
+
+  async getTotalBets(sessionId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        'SELECT COALESCE(SUM(amount), 0) as total FROM global_taixiu_bets WHERE session_id = ?',
+        sessionId
+      );
+      return rows[0]?.total || 0;
+    });
+  },
+};
+
+// ═══════════════════════════════════════════
+// GLOBAL TAI XIU BET MODEL
+// ═══════════════════════════════════════════
+
+const GlobalTaixiuBetModel = {
+  async create(sessionId, userId, guildId, choice, amount) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'INSERT INTO global_taixiu_bets (session_id, user_id, guild_id, choice, amount) VALUES (?, ?, ?, ?, ?)',
+        sessionId, userId, guildId, choice, amount
+      );
+    });
+  },
+
+  async updateResult(sessionId, userId, won, payout) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      await db.sql(
+        'UPDATE global_taixiu_bets SET won = ?, payout = ? WHERE session_id = ? AND user_id = ?',
+        won ? 1 : 0, payout, sessionId, userId
+      );
+    });
+  },
+
+  async getSessionBets(sessionId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        `SELECT b.*, u.discord_id
+         FROM global_taixiu_bets b
+         JOIN users u ON b.user_id = u.id
+         WHERE b.session_id = ?`,
+        sessionId
+      );
+    });
+  },
+};
+
 module.exports = {
   UserModel,
   ConfigModel,
@@ -511,4 +673,7 @@ module.exports = {
   BetModel,
   BaucuaSessionModel,
   BaucuaBetModel,
+  GlobalTaixiuChannelModel,
+  GlobalTaixiuSessionModel,
+  GlobalTaixiuBetModel,
 };
