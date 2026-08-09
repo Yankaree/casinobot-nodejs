@@ -118,6 +118,14 @@ function createServer(client) {
     console.log(`🌐 Web server running on port ${PORT}`);
   });
 
+  if (process.env.RENDER_URL) {
+    setInterval(() => {
+      http.get(process.env.RENDER_URL, (res) => {
+        console.log(`[KeepAlive] Ping: ${res.statusCode}`);
+      }).on('error', () => {});
+    }, 5 * 60 * 1000);
+  }
+
   return server;
 }
 
