@@ -1,5 +1,7 @@
-const { UserModel, BetModel, ConfigModel } = require('../../database/models');
+const { UserModel, BetModel, JackpotModel } = require('../../database/models');
 const config = require('../../config');
+
+const GAME_NAME = 'taixiu';
 
 async function processRewards(guildId, sessionId, result, jackpot, bets) {
   const losers = bets.filter(b => b.choice !== result);
@@ -7,7 +9,7 @@ async function processRewards(guildId, sessionId, result, jackpot, bets) {
 
   const totalLost = losers.reduce((sum, b) => sum + b.amount, 0);
 
-  let jackpotBalance = await ConfigModel.getJackpot(guildId);
+  let jackpotBalance = await JackpotModel.getBalance(guildId, GAME_NAME);
   if (jackpotBalance < 0) jackpotBalance = 0;
 
   let poolFromLosers = totalLost;
@@ -27,11 +29,11 @@ async function processRewards(guildId, sessionId, result, jackpot, bets) {
     poolFromLosers -= fromLosers;
 
     if (fromJackpot > 0 && fromJackpot <= jackpotBalance) {
-      await ConfigModel.addJackpot(guildId, -fromJackpot);
+      await JackpotModel.addAmount(guildId, GAME_NAME, -fromJackpot);
       jackpotBalance -= fromJackpot;
     } else if (fromJackpot > 0) {
       fromJackpot = jackpotBalance;
-      await ConfigModel.resetJackpot(guildId);
+      await JackpotModel.reset(guildId, GAME_NAME);
       jackpotBalance = 0;
     }
 
@@ -45,7 +47,7 @@ async function processRewards(guildId, sessionId, result, jackpot, bets) {
   }
 
   if (poolFromLosers > 0) {
-    await ConfigModel.addJackpot(guildId, poolFromLosers);
+    await JackpotModel.addAmount(guildId, GAME_NAME, poolFromLosers);
   }
 
   for (const bet of losers) {

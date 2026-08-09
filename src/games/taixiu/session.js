@@ -183,7 +183,7 @@ class GameSession extends EventEmitter {
   async addBet(userId, choice, amount) {
     if (!this.isActive) return { success: false, message: 'Phiên đã đóng!' };
     if (this.isStopped) return { success: false, message: 'Game đã dừng!' };
-    if (this.isPaused) return { success: false, message: '⏸️ Game đang tạm dừng! Chờ admin `/tieptuc`' };
+    if (this.isPaused) return { success: false, message: '⏸️ Game đang tạm dừng! Dùng `/tieptuc` để tiếp tục' };
     if (amount < 1000) return { success: false, message: 'Mức cược tối thiểu là **1,000** 🪙!' };
 
     if (this.bettors.has(userId)) {

@@ -40,11 +40,11 @@ async function getStatsEmbed(guildId) {
 }
 
 async function getJackpotEmbed(guildId) {
-  const { ConfigModel } = require('../../database/models');
-  const jackpot = await ConfigModel.getJackpot(guildId);
+  const { JackpotModel } = require('../../database/models');
+  const jackpot = await JackpotModel.getBalance(guildId, 'taixiu');
 
   return new EmbedBuilder()
-    .setTitle('💰 HŨ HIỆN TẠI')
+    .setTitle('💰 HŨ TÀI XỈU')
     .setDescription(`**${formatCoins(jackpot)}** 🪙`)
     .setColor(config.colors.primary)
     .setTimestamp();

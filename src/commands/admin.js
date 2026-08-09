@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { UserModel, ConfigModel } = require('../database/models');
+const { UserModel, JackpotModel } = require('../database/models');
 const { formatCoins } = require('../utils/formatter');
 const config = require('../config');
 
@@ -50,8 +50,8 @@ module.exports = {
       }
 
       if (subcommand === 'resetjackpot') {
-        await ConfigModel.resetJackpot(interaction.guildId);
-        return interaction.reply({ content: '✅ **Thành công**\nĐã reset jackpot!' });
+        await JackpotModel.reset(interaction.guildId, 'taixiu');
+        return interaction.reply({ content: '✅ **Thành công**\nĐã reset jackpot Tài Xỉu!' });
       }
     } catch (error) {
       console.error('Admin command error:', error);

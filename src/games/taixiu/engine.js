@@ -133,6 +133,14 @@ function calculateResult(d1, d2, d3) {
 // → Kết quả TỰ NHIÊN như xóc đĩa thật
 // ─────────────────────────────────────────────
 function rollDiceWithWeight(guildId) {
+  // Jackpot chance: ~0.5% to roll triple 1 or triple 6
+  const jackpotRoll = secureRandom(200);
+  if (jackpotRoll === 0) {
+    const triple = secureRandom(2) === 1 ? 1 : 6;
+    addResult(guildId, 'tai');
+    return { d1: triple, d2: triple, d3: triple };
+  }
+
   const { length: streakLength, type: streakType } = getStreakInfo(guildId);
 
   if (streakType && streakLength >= 2) {
