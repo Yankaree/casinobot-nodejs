@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, Collection, GatewayIntentBits } = require('discord.js');
+const { Client, Collection, GatewayIntentBits, REST, Routes } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const config = require('./config');
@@ -22,15 +22,35 @@ client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
 
+const commandData = [];
+
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
   try {
     const command = require(filePath);
     if ('data' in command && 'execute' in command) {
       client.commands.set(command.data.name, command);
+      commandData.push(command.data.toJSON());
     }
   } catch (error) {
     console.error(`Error loading command ${file}:`, error);
+  }
+}
+
+async function registerCommands() {
+  if (!config.token || !config.clientId) {
+    console.warn('[Deploy] Missing DISCORD_TOKEN or CLIENT_ID, skipping command registration');
+    return;
+  }
+  try {
+    const rest = new REST({ version: '10' }).setToken(config.token);
+    const data = await rest.put(
+      Routes.applicationCommands(config.clientId),
+      { body: commandData }
+    );
+    console.log(`[Deploy] Registered ${data.length} commands`);
+  } catch (err) {
+    console.error('[Deploy] Failed to register commands:', err.message);
   }
 }
 
@@ -92,26 +112,20 @@ process.on('unhandledRejection', (error) => {
   console.error('Unhandled promise rejection:', error);
 });
 
-function startBot() {
-  const PORT = process.env.PORT || 3000;
-  createServer(client);
+createServer(client);
 
-  async function tryLogin() {
-    try {
-      await client.login(config.token);
-    } catch (err) {
-      console.error(`[Bot] Login failed: ${err.message}. Retrying in 30s...`);
-      setTimeout(tryLogin, 30_000);
-    }
-  }
-
-  tryLogin();
-
+client.login(config.token).then(() => {
+  registerCommands();
   connectDb().then(() => {
     console.log('[Bot] Database connected');
   }).catch((err) => {
     console.error('[Bot] Database connection failed:', err.message);
   });
-}
-
-startBot();
+}).catch((err) => {
+  console.error(`[Bot] Login failed: ${err.message}. Retrying in 30s...`);
+  setTimeout(() => {
+    client.login(config.token).catch(() => {});
+    registerCommands();
+    connectDb().catch(() => {});
+  }, 30_000);
+});
