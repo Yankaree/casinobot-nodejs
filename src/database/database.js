@@ -11,6 +11,8 @@ const RECONNECT_DELAY_MS = 2_000;
 
 const DEFAULT_JACKPOT = 100_000_000;
 
+const CONNECT_TIMEOUT_MS = 15_000;
+
 async function connectDb() {
   if (db) {
     try {
@@ -21,7 +23,12 @@ async function connectDb() {
     }
   }
 
-  db = new Database(config.sqliteUri);
+  const connection = new Database(config.sqliteUri);
+  await Promise.race([
+    connection.sql('SELECT 1'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('SQLite Cloud connection timed out')), CONNECT_TIMEOUT_MS)),
+  ]);
+  db = connection;
 
   // ═══════════════════════════════════════════
   // SHARED TABLES

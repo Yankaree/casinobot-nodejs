@@ -91,9 +91,14 @@ process.on('unhandledRejection', (error) => {
 
 (async () => {
   try {
-    await connectDb();
     createServer(client);
-    await client.login(config.token);
+    client.login(config.token).catch((err) => {
+      console.error('Failed to login Discord:', err);
+      process.exit(1);
+    });
+    connectDb().catch((err) => {
+      console.error('Failed to connect DB:', err);
+    });
   } catch (error) {
     console.error('Failed to start bot:', error);
     process.exit(1);
