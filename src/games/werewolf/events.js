@@ -15,6 +15,7 @@ function registerEvent(id, definition) {
     effect: definition.effect,
     duration: definition.duration || 'night',
     minPlayers: definition.minPlayers || 0,
+    weight: definition.weight || 10,
   });
 }
 
@@ -28,15 +29,21 @@ function getAllEvents() {
 
 function rollRandomEvent(session) {
   const roll = secureRandom(100);
-  if (roll >= 40) return null;
+  if (roll >= 50) return null;
 
   const available = getAllEvents().filter(
     (e) => e.minPlayers <= session.players.length
   );
   if (available.length === 0) return null;
 
-  const idx = secureRandom(available.length);
-  return available[idx];
+  const totalWeight = available.reduce((sum, e) => sum + e.weight, 0);
+  let weightRoll = secureRandom(totalWeight);
+  for (const e of available) {
+    weightRoll -= e.weight;
+    if (weightRoll < 0) return e;
+  }
+
+  return available[available.length - 1];
 }
 
 function checkLastCandle(session) {
@@ -87,6 +94,7 @@ registerEvent('fog', {
     session.effects.push({ type: 'fog', rounds: 1 });
   },
   minPlayers: 4,
+  weight: 15,
 });
 
 registerEvent('fish_rain', {
@@ -99,6 +107,7 @@ registerEvent('fish_rain', {
     });
   },
   minPlayers: 4,
+  weight: 15,
 });
 
 registerEvent('disease', {
@@ -114,10 +123,12 @@ registerEvent('disease', {
       target.alive = false;
       target.deathReason = 'disease';
       target.deathDay = session.day;
+      target.roleRevealed = true;
       session.deadPlayers.push({ ...target });
     }
   },
   minPlayers: 4,
+  weight: 8,
 });
 
 registerEvent('freeze', {
@@ -131,6 +142,7 @@ registerEvent('freeze', {
     session.effects.push({ type: 'freeze', targetId: target.userId, rounds: 1 });
   },
   minPlayers: 4,
+  weight: 15,
 });
 
 registerEvent('illusion', {
@@ -141,6 +153,7 @@ registerEvent('illusion', {
     session.effects.push({ type: 'illusion', rounds: 1 });
   },
   minPlayers: 6,
+  weight: 8,
 });
 
 registerEvent('lightning', {
@@ -156,10 +169,12 @@ registerEvent('lightning', {
       target.alive = false;
       target.deathReason = 'lightning';
       target.deathDay = session.day;
+      target.roleRevealed = true;
       session.deadPlayers.push({ ...target });
     }
   },
   minPlayers: 4,
+  weight: 8,
 });
 
 registerEvent('heavy_rain', {
@@ -170,6 +185,7 @@ registerEvent('heavy_rain', {
     session.effects.push({ type: 'heavy_rain', rounds: 1 });
   },
   minPlayers: 4,
+  weight: 15,
 });
 
 registerEvent('blood_moon', {
@@ -180,6 +196,7 @@ registerEvent('blood_moon', {
     session.effects.push({ type: 'blood_moon', rounds: 1 });
   },
   minPlayers: 6,
+  weight: 4,
 });
 
 registerEvent('volcano', {
@@ -195,10 +212,12 @@ registerEvent('volcano', {
       target.alive = false;
       target.deathReason = 'volcano';
       target.deathDay = session.day;
+      target.roleRevealed = true;
       session.deadPlayers.push({ ...target });
     }
   },
   minPlayers: 5,
+  weight: 6,
 });
 
 module.exports = {

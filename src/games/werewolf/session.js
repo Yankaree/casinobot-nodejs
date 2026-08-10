@@ -73,6 +73,7 @@ class WerewolfSession extends EventEmitter {
       deathReason: null,
       deathDay: null,
       killedBy: null,
+      roleRevealed: false,
     });
 
     return { success: true };
@@ -330,6 +331,7 @@ class WerewolfSession extends EventEmitter {
           guard.deathReason = 'guard';
           guard.deathDay = this.day;
           guard.killedBy = kill.attackerId;
+          guard.roleRevealed = true;
           this.deadPlayers.push({ ...guard });
 
           try {
@@ -349,6 +351,7 @@ class WerewolfSession extends EventEmitter {
         target.deathReason = 'killed';
         target.deathDay = this.day;
         target.killedBy = kill.attackerId;
+        target.roleRevealed = true;
         this.deadPlayers.push({ ...target });
       }
     }
@@ -370,6 +373,7 @@ class WerewolfSession extends EventEmitter {
         resurrected.hp = resurrected.maxHp;
         resurrected.deathReason = null;
         resurrected.deathDay = null;
+        resurrected.roleRevealed = false;
         this.deadPlayers = this.deadPlayers.filter((p) => p.userId !== resurrected.userId);
       }
     }
@@ -402,9 +406,15 @@ class WerewolfSession extends EventEmitter {
     } else if (deaths.length === 0) {
       desc += '🌅 Đêm qua không ai chết!\n';
     } else {
+      const teamText = { werewolf: '🐺 Phe Sói', villager: '🧑‍🌾 Phe Dân làng', neutral: '⚖️ Phe Trung lập' };
       for (const d of deaths) {
-        const roleDef = getRole(d.role);
-        desc += `${roleDef.emoji} <@${d.userId}> đã bị giết trong đêm.\n`;
+        if (d.roleRevealed) {
+          const roleDef = getRole(d.role);
+          desc += `☠️ <@${d.userId}> đã chết.\n`;
+          desc += `Vai trò: ${roleDef.emoji} **${roleDef.name}**\nPhe: ${teamText[d.team] || d.team}\n\n`;
+        } else {
+          desc += `☠️ <@${d.userId}> đã chết.\n\n`;
+        }
       }
     }
 
@@ -548,16 +558,15 @@ class WerewolfSession extends EventEmitter {
         target.alive = false;
         target.deathReason = 'voted';
         target.deathDay = this.day;
+        target.roleRevealed = false;
         this.deadPlayers.push({ ...target });
-
-        const roleDef = getRole(target.role);
 
         const embed = new EmbedBuilder()
           .setTitle('🗳️ KẾT QUẢ BẦU CỬ')
           .setDescription(
             `**Ngày ${this.day}**\n\n` +
-            `<@${eliminated}> đã bị loại với **${maxVotes}** phiếu.\n\n` +
-            `${roleDef.emoji} Role: **${roleDef.name}**`
+            `⚖️ <@${eliminated}> đã bị dân làng treo cổ với **${maxVotes}** phiếu.\n\n` +
+            `<@${eliminated}> đã rời khỏi trận đấu.`
           )
           .setColor(0xff0000)
           .setTimestamp();
@@ -603,15 +612,18 @@ class WerewolfSession extends EventEmitter {
         t.alive = false;
         t.deathReason = 'poisoned';
         t.deathDay = this.day;
+        t.roleRevealed = true;
         this.deadPlayers.push({ ...t });
 
         const channel = this._client?.channels?.cache?.get(this.channelId);
         if (channel) {
+          const roleDef = getRole(t.role);
+          const teamText = { werewolf: '🐺 Phe Sói', villager: '🧑‍🌾 Phe Dân làng', neutral: '⚖️ Phe Trung lập' };
           const embed = new EmbedBuilder()
             .setTitle('☠️ CÁI CHẾT BÍ ẨN')
             .setDescription(
-              `<@${targetId}> đã chết trong lúc thảo luận.\n` +
-              `_Không tiết lộ nguyên nhân._`
+              `☠️ <@${targetId}> đã chết trong lúc thảo luận.\n\n` +
+              `Vai trò: ${roleDef.emoji} **${roleDef.name}**\nPhe: ${teamText[t.team] || t.team}`
             )
             .setColor(0x800080)
             .setTimestamp();
@@ -685,11 +697,12 @@ class WerewolfSession extends EventEmitter {
     };
     const w = winnerMap[this.winner] || winnerMap.villager;
 
-    let roleReveal = '\n**Role của tất cả người chơi:**\n';
+    let roleReveal = '\n**Danh sách người chơi:**\n\n';
+    const teamText = { werewolf: '🐺 Phe Sói', villager: '🧑‍🌾 Phe Dân làng', neutral: '⚖️ Phe Trung lập' };
     for (const p of this.players) {
       const roleDef = getRole(p.role);
       const status = p.alive ? '✅' : '💀';
-      roleReveal += `${status} <@${p.userId}> - ${roleDef.emoji} ${roleDef.name}\n`;
+      roleReveal += `${status} <@${p.userId}>\nRole: ${roleDef.emoji} **${roleDef.name}**\nPhe: ${teamText[p.team] || p.team}\n\n`;
     }
 
     const embed = new EmbedBuilder()
