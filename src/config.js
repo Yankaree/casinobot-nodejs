@@ -7,8 +7,8 @@ module.exports = {
 
   game: {
     sessionDuration: 50,
-    betMultiplier: 1.2,
-    jackpotMultiplier: 1.4,
+    betMultiplier: 2.5,
+    jackpotMultiplier: 5.0,
     jackpotChance: [1, 1, 1], // Triple 1
     jackpotChance2: [6, 6, 6], // Triple 6
     jackpotPercent: 0.05,
