@@ -17,9 +17,9 @@ module.exports = {
   },
 
   work: {
-    cooldownMs: 90 * 1000, // 90 giây
-    minReward: 5000,
-    maxReward: 10000,
+    cooldownMs: 30 * 1000, // 30 giây
+    minReward: 15000,
+    maxReward: 150000,
   },
 
   adminUsers: ['924487653456511048'],
