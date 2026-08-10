@@ -106,6 +106,24 @@ const SCHEMA_SQL = [
     FOREIGN KEY (session_id) REFERENCES global_taixiu_sessions(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
   )`,
+  `CREATE TABLE IF NOT EXISTS werewolf_lobbies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    lobby_id TEXT NOT NULL UNIQUE,
+    status TEXT DEFAULT 'lobby',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS werewolf_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    winner TEXT NOT NULL,
+    player_count INTEGER DEFAULT 0,
+    days INTEGER DEFAULT 0,
+    duration_ms INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
 ];
 
 function sqlWithTimeout(connection, sql, params) {

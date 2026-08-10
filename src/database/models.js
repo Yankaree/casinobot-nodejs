@@ -665,6 +665,89 @@ const GlobalTaixiuBetModel = {
   },
 };
 
+// ═══════════════════════════════════════════
+// WEREWOLF MODELS
+// ═══════════════════════════════════════════
+
+const WerewolfLobbyModel = {
+  async create(guildId, channelId, lobbyId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      await db.sql(
+        'INSERT OR REPLACE INTO werewolf_lobbies (guild_id, channel_id, lobby_id, status) VALUES (?, ?, ?, ?)',
+        guildId, channelId, lobbyId, 'lobby'
+      );
+    });
+  },
+
+  async setStatus(lobbyId, status) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      await db.sql(
+        'UPDATE werewolf_lobbies SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE lobby_id = ?',
+        status, lobbyId
+      );
+    });
+  },
+
+  async getByLobbyId(lobbyId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql('SELECT * FROM werewolf_lobbies WHERE lobby_id = ?', lobbyId);
+      return rows[0] || null;
+    });
+  },
+
+  async getRecent(guildId, limit = 10) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'SELECT * FROM werewolf_lobbies WHERE guild_id = ? ORDER BY created_at DESC LIMIT ?',
+        guildId, limit
+      );
+    });
+  },
+};
+
+const WerewolfHistoryModel = {
+  async create(guildId, winner, playerCount, days, durationMs) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'INSERT INTO werewolf_history (guild_id, winner, player_count, days, duration_ms) VALUES (?, ?, ?, ?, ?)',
+        guildId, winner, playerCount, days, durationMs
+      );
+    });
+  },
+
+  async getRecent(guildId, limit = 10) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'SELECT * FROM werewolf_history WHERE guild_id = ? ORDER BY created_at DESC LIMIT ?',
+        guildId, limit
+      );
+    });
+  },
+
+  async getStats(guildId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT
+          COUNT(*) as total_games,
+          SUM(CASE WHEN winner = 'werewolf' THEN 1 ELSE 0 END) as wolf_wins,
+          SUM(CASE WHEN winner = 'villager' THEN 1 ELSE 0 END) as villager_wins,
+          AVG(player_count) as avg_players,
+          AVG(days) as avg_days
+         FROM werewolf_history WHERE guild_id = ?`,
+        guildId
+      );
+      return rows[0] || { total_games: 0, wolf_wins: 0, villager_wins: 0, avg_players: 0, avg_days: 0 };
+    });
+  },
+};
+
 module.exports = {
   UserModel,
   ConfigModel,
@@ -676,4 +759,6 @@ module.exports = {
   GlobalTaixiuChannelModel,
   GlobalTaixiuSessionModel,
   GlobalTaixiuBetModel,
+  WerewolfLobbyModel,
+  WerewolfHistoryModel,
 };

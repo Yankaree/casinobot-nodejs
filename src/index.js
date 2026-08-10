@@ -44,11 +44,12 @@ async function registerCommands() {
   }
   try {
     const rest = new REST({ version: '10' }).setToken(config.token);
+    console.log(`[Deploy] Registering ${commandData.length} commands...`);
     const data = await rest.put(
       Routes.applicationCommands(config.clientId),
       { body: commandData }
     );
-    console.log(`[Deploy] Registered ${data.length} commands`);
+    console.log(`[Deploy] Registered ${data.length} commands successfully`);
   } catch (err) {
     console.error('[Deploy] Failed to register commands:', err.message);
   }
@@ -57,6 +58,10 @@ async function registerCommands() {
 client.once('ready', async () => {
   console.log(`✅ Bot is ready! Logged in as ${client.user.tag}`);
   console.log(`📌 Serving ${client.guilds.cache.size} guild(s)`);
+
+  // Auto-register commands on every boot
+  await registerCommands();
+
   try {
     const { setupGlobalChatListener } = require('./games/global-taixiu/chat/listener');
     await setupGlobalChatListener(client);
@@ -114,18 +119,33 @@ process.on('unhandledRejection', (error) => {
 
 createServer(client);
 
-client.login(config.token).then(() => {
-  registerCommands();
-  connectDb().then(() => {
+// Connect DB first, then login
+async function startBot() {
+  try {
+    await connectDb();
     console.log('[Bot] Database connected');
-  }).catch((err) => {
+  } catch (err) {
     console.error('[Bot] Database connection failed:', err.message);
-  });
-}).catch((err) => {
-  console.error(`[Bot] Login failed: ${err.message}. Retrying in 30s...`);
-  setTimeout(() => {
-    client.login(config.token).catch(() => {});
-    registerCommands();
-    connectDb().catch(() => {});
-  }, 30_000);
-});
+    console.error('[Bot] Bot will start but DB features may not work');
+  }
+
+  const MAX_LOGIN_ATTEMPTS = 5;
+  for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt++) {
+    try {
+      await client.login(config.token);
+      // Login successful, ready event will handle the rest
+      return;
+    } catch (err) {
+      console.error(`[Bot] Login attempt ${attempt}/${MAX_LOGIN_ATTEMPTS} failed: ${err.message}`);
+      if (attempt < MAX_LOGIN_ATTEMPTS) {
+        const delay = 5000 * attempt;
+        console.log(`[Bot] Retrying in ${delay / 1000}s...`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  console.error('[Bot] Failed to login after max attempts. Exiting.');
+  process.exit(1);
+}
+
+startBot();
