@@ -12,14 +12,14 @@ module.exports = {
     jackpotChance: [1, 1, 1], // Triple 1
     jackpotChance2: [6, 6, 6], // Triple 6
     jackpotPercent: 0.05,
-    startingCoins: 10000,
+    startingCoins: 100,
     maxEmptyRounds: 3,
   },
 
   work: {
     cooldownMs: 30 * 1000, // 30 giây
-    minReward: 15000,
-    maxReward: 150000,
+    minReward: 10000,
+    maxReward: 100000,
   },
 
   adminUsers: ['924487653456511048'],

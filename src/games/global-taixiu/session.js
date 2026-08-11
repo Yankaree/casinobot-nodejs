@@ -1,6 +1,6 @@
 const { EventEmitter } = require('events');
 const { GlobalTaixiuSessionModel, GlobalTaixiuBetModel, UserModel, GlobalTaixiuChannelModel } = require('../../database/models');
-const { rollDiceWithWeight, calculateResult, isJackpot, resetHistory } = require('./engine');
+const { rollResult, resetHistory } = require('./engine');
 const { processRewards } = require('./reward');
 const config = require('../../config');
 const { EmbedBuilder } = require('discord.js');
@@ -118,30 +118,18 @@ class GameSession extends EventEmitter {
     return embed;
   }
 
-  createResultEmbed(d1, d2, d3, result, jackpot, bets) {
-    const jackpotWin = isJackpot(d1, d2, d3);
-
+  createResultEmbed(result, bets) {
     const embed = new EmbedBuilder()
       .setTitle('🎲 KẾT QUẢ TÀI XỈU GLOBAL')
       .setDescription(`**Phiên #${this.sessionId}**`)
       .addFields(
-        { name: '🎲 Xúc xắc', value: formatDice(d1, d2, d3), inline: true },
-        { name: '📊 Tổng', value: `${d1 + d2 + d3}`, inline: true },
         {
           name: '🏆 Kết quả',
           value: `${getResultEmoji(result)} **${getResultText(result)}**`,
           inline: true,
         }
       )
-      .setColor(result === 'tai' ? 0x00ff00 : 0xff0000);
-
-    if (jackpotWin) {
-      embed.addFields({
-        name: '💎 NỔ HŨ!',
-        value: `✨ ${formatDice(d1, d2, d3)} ✨\nThưởng đặc biệt +40%!`,
-        inline: false,
-      });
-    }
+      .setColor(result === 'tai' ? 0xff0000 : 0x0000ff);
 
     if (bets.length > 0) {
       const winners = bets.filter((b) => b.won);
@@ -264,7 +252,7 @@ class GameSession extends EventEmitter {
     await this.broadcast(
       new EmbedBuilder()
         .setTitle('🎲 TÀI XỈU GLOBAL')
-        .setDescription(`**Phiên #${this.sessionId}**\n\n🎲 Đang lắc xúc xắc...`)
+        .setDescription(`**Phiên #${this.sessionId}**\n\n🎲 Đang quay...`)
         .setColor(config.colors.primary)
     );
 
@@ -272,18 +260,16 @@ class GameSession extends EventEmitter {
 
     if (this.isStopped) return;
 
-    const { d1, d2, d3 } = rollDiceWithWeight();
-    const result = calculateResult(d1, d2, d3);
-    const jackpot = isJackpot(d1, d2, d3);
+    const result = rollResult();
 
-    await GlobalTaixiuSessionModel.finish(this.sessionId, d1, d2, d3, result, totalBets);
+    await GlobalTaixiuSessionModel.finish(this.sessionId, null, null, null, result, totalBets);
 
     const bets = await GlobalTaixiuBetModel.getSessionBets(this.sessionId);
-    await processRewards(this.sessionId, result, jackpot, bets);
+    await processRewards(this.sessionId, result, false, bets);
 
     const updatedBets = await GlobalTaixiuBetModel.getSessionBets(this.sessionId);
 
-    await this.broadcast(this.createResultEmbed(d1, d2, d3, result, jackpot, updatedBets));
+    await this.broadcast(this.createResultEmbed(result, updatedBets));
 
     this.emit('ended', this.sessionId);
 
