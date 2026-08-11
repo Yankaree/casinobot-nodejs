@@ -119,10 +119,9 @@ class GameSession extends EventEmitter {
 
     ANIMALS.forEach((a, i) => {
       const btn = new ButtonBuilder()
-        .setCustomId(`baucua_display_${a.name}`)
+        .setCustomId(`baucua_select_${a.name}_${this.sessionId}`)
         .setLabel(`${a.emoji} ${a.label}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true);
+        .setStyle(ButtonStyle.Secondary);
 
       if (i < 3) row1.addComponents(btn);
       else row2.addComponents(btn);

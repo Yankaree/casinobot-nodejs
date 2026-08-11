@@ -1,10 +1,10 @@
 const { EventEmitter } = require('events');
 const { SessionModel, BetModel, ConfigModel, UserModel } = require('../../database/models');
-const { rollDiceWithWeight, calculateResult, isJackpot, resetHistory } = require('./engine');
+const { rollResult, resetHistory } = require('./engine');
 const { processRewards } = require('./reward');
 const config = require('../../config');
-const { EmbedBuilder } = require('discord.js');
-const { formatCoins, formatDice, formatProgressBar, formatTime, getResultEmoji, getResultText } = require('../../utils/formatter');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { formatCoins, formatProgressBar, formatTime, getResultEmoji, getResultText } = require('../../utils/formatter');
 
 class GameSession extends EventEmitter {
   constructor(guildId, channelId) {
@@ -43,7 +43,10 @@ class GameSession extends EventEmitter {
     const channel = client.channels.cache.get(this.channelId);
     if (!channel) return;
 
-    this.message = await channel.send({ embeds: [this.createEmbed()] });
+    this.message = await channel.send({
+      embeds: [this.createEmbed()],
+      components: this.createButtons(),
+    });
 
     this._startTime = Date.now();
     this._tickInterval = setInterval(() => {
@@ -54,13 +57,33 @@ class GameSession extends EventEmitter {
       const elapsed = Math.floor((Date.now() - this._startTime) / 1000);
       this.timeLeft = Math.max(0, config.game.sessionDuration - elapsed);
       if (this.message) {
-        this.message.edit({ embeds: [this.createEmbed()] }).catch(() => {});
+        this.message.edit({
+          embeds: [this.createEmbed()],
+          components: this.createButtons(),
+        }).catch(() => {});
       }
       if (this.timeLeft <= 0) {
         clearInterval(this._tickInterval);
         this.end(client).catch((err) => console.error('Session end error:', err));
       }
     }, 1000);
+  }
+
+  createButtons() {
+    if (this.isPaused || !this.isActive) return [];
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`taixiu_bet_tai_${this.sessionId}`)
+        .setLabel('🔴 TÀI')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(`taixiu_bet_xiu_${this.sessionId}`)
+        .setLabel('🔵 XỈU')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    return [row];
   }
 
   createEmbed() {
@@ -83,10 +106,13 @@ class GameSession extends EventEmitter {
       embed.setDescription(
         `**Phiên #${this.sessionId}**\n\n` +
         `⏸️ **TẠM DỪNG** - Không ai đặt cược qua ${config.game.maxEmptyRounds} phiên\n` +
-        `Dùng \`/tieptuc\` để tiếp tục`
+        `Dùng \`/taixiu tieptuc\` để tiếp tục`
       );
     } else {
-      embed.setDescription(`**Phiên #${this.sessionId}**\n⏱️ Còn **${formatTime(this.timeLeft)}**`);
+      embed.setDescription(
+        `**Phiên #${this.sessionId}**\n` +
+        `⏱️ Còn **${formatTime(this.timeLeft)}**`
+      );
     }
 
     embed.addFields(
@@ -103,37 +129,25 @@ class GameSession extends EventEmitter {
     );
 
     if (!this.isPaused) {
-      embed.setFooter({ text: 'Dùng /bet tai hoặc /bet xiu để đặt cược' });
+      embed.setFooter({ text: 'Nhấn nút bên dưới để đặt cược' });
     }
 
     embed.setTimestamp();
     return embed;
   }
 
-  createResultEmbed(d1, d2, d3, result, jackpot, bets) {
-    const jackpotWin = isJackpot(d1, d2, d3);
-    
+  createResultEmbed(result, bets) {
     const embed = new EmbedBuilder()
       .setTitle('🎲 KẾT QUẢ TÀI XỈU')
       .setDescription(`**Phiên #${this.sessionId}**`)
       .addFields(
-        { name: '🎲 Xúc xắc', value: formatDice(d1, d2, d3), inline: true },
-        { name: '📊 Tổng', value: `${d1 + d2 + d3}`, inline: true },
         {
           name: '🏆 Kết quả',
           value: `${getResultEmoji(result)} **${getResultText(result)}**`,
           inline: true,
         }
       )
-      .setColor(result === 'tai' ? 0x00ff00 : 0xff0000);
-
-    if (jackpotWin) {
-      embed.addFields({
-        name: '💎 NỔ HŨ!',
-        value: `✨ ${formatDice(d1, d2, d3)} ✨\nThưởng đặc biệt +40%!`,
-        inline: false,
-      });
-    }
+      .setColor(result === 'tai' ? 0xff0000 : 0x0000ff);
 
     if (bets.length > 0) {
       const winners = bets.filter((b) => b.won);
@@ -183,7 +197,7 @@ class GameSession extends EventEmitter {
   async addBet(userId, choice, amount) {
     if (!this.isActive) return { success: false, message: 'Phiên đã đóng!' };
     if (this.isStopped) return { success: false, message: 'Game đã dừng!' };
-    if (this.isPaused) return { success: false, message: '⏸️ Game đang tạm dừng! Dùng `/tieptuc` để tiếp tục' };
+    if (this.isPaused) return { success: false, message: '⏸️ Game đang tạm dừng! Dùng `/taixiu tieptuc` để tiếp tục' };
     if (amount < 1000) return { success: false, message: 'Mức cược tối thiểu là **1,000** 🪙!' };
 
     if (this.bettors.has(userId)) {
@@ -202,7 +216,8 @@ class GameSession extends EventEmitter {
     const user = await UserModel.getOrCreate(this.guildId, userId);
     await BetModel.create(this.sessionId, user.id, choice, amount);
 
-    return { success: true };
+    const newBalance = balance - amount;
+    return { success: true, balance: newBalance, choice, amount };
   }
 
   async end(client) {
@@ -238,7 +253,7 @@ class GameSession extends EventEmitter {
               .setTitle('🎲 TÀI XỈU - TẠM DỪNG')
               .setDescription(
                 `**Đã ${config.game.maxEmptyRounds} phiên liên tiếp không ai đặt cược!**\n\n` +
-                `⏸️ Game đang tạm dừng. Dùng \`/tieptuc\` để tiếp tục!`
+                `⏸️ Game đang tạm dừng. Dùng \`/taixiu tieptuc\` để tiếp tục!`
               )
               .setColor(config.colors.info)
           ] });
@@ -261,7 +276,7 @@ class GameSession extends EventEmitter {
     if (channel) {
       const rollingEmbed = new EmbedBuilder()
         .setTitle('🎲 TÀI XỈU')
-        .setDescription(`**Phiên #${this.sessionId}**\n\n🎲 Đang lắc xúc xắc...`)
+        .setDescription(`**Phiên #${this.sessionId}**\n\n🎲 Đang quay...`)
         .setColor(config.colors.primary);
       await channel.send({ embeds: [rollingEmbed] });
     }
@@ -270,19 +285,17 @@ class GameSession extends EventEmitter {
 
     if (this.isStopped) return;
 
-    const { d1, d2, d3 } = rollDiceWithWeight(this.guildId);
-    const result = calculateResult(d1, d2, d3);
-    const jackpot = isJackpot(d1, d2, d3);
+    const result = rollResult(this.guildId);
 
-    await SessionModel.finish(this.sessionId, d1, d2, d3, result, totalBets);
+    await SessionModel.finish(this.sessionId, null, null, null, result, totalBets);
 
     const bets = await BetModel.getSessionBets(this.sessionId);
-    await processRewards(this.guildId, this.sessionId, result, jackpot, bets);
+    await processRewards(this.guildId, this.sessionId, result, false, bets);
 
     const updatedBets = await BetModel.getSessionBets(this.sessionId);
 
     if (channel) {
-      await channel.send({ embeds: [this.createResultEmbed(d1, d2, d3, result, jackpot, updatedBets)] });
+      await channel.send({ embeds: [this.createResultEmbed(result, updatedBets)] });
     }
 
     this.emit('ended', this.sessionId);
@@ -302,7 +315,7 @@ class GameSession extends EventEmitter {
       this._tickInterval = null;
     }
     if (this.message) {
-      this.message.edit({ embeds: [this.createEmbed()] }).catch(() => {});
+      this.message.edit({ embeds: [this.createEmbed()], components: [] }).catch(() => {});
     }
     return true;
   }

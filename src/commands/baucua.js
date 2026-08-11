@@ -3,8 +3,12 @@ const {
   PermissionFlagsBits,
   ChannelType,
   EmbedBuilder,
+  ActionRowBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ModalBuilder,
 } = require('discord.js');
-const { ConfigModel } = require('../database/models');
+const { ConfigModel, UserModel } = require('../database/models');
 const GameSession = require('../games/baucua/session');
 const { ANIMALS } = require('../games/baucua/engine');
 const { getJackpotEmbed, resetJackpot } = require('../games/baucua/jackpot');
@@ -215,6 +219,119 @@ module.exports = {
         ephemeral: true,
       });
     }
+  },
+
+  // Handle button interactions for selecting animal
+  async handleButton(interaction) {
+    const customId = interaction.customId;
+    if (!customId.startsWith('baucua_select_')) return;
+
+    const parts = customId.split('_');
+    const animal = parts[2]; // animal name
+    const sessionId = parts[3];
+
+    const session = activeSessions.get(interaction.guildId);
+    if (!session) {
+      return interaction.reply({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+    }
+
+    if (!session.isActive) {
+      return interaction.reply({ content: '❌ Phiên đã đóng!', ephemeral: true });
+    }
+
+    if (session.isPaused) {
+      return interaction.reply({ content: '⏸️ Game đang tạm dừng!', ephemeral: true });
+    }
+
+    // Check if user already bet on this animal
+    const existingBets = session.bettors.get(interaction.user.id) || [];
+    if (existingBets.find((b) => b.animal === animal)) {
+      const animalInfo = ANIMALS.find((a) => a.name === animal);
+      return interaction.reply({
+        content: `❌ Bạn đã cược **${animalInfo.emoji} ${animalInfo.label}** rồi! Mỗi cửa chỉ cược 1 lần.`,
+        ephemeral: true,
+      });
+    }
+
+    if (existingBets.length >= 6) {
+      return interaction.reply({ content: '❌ Bạn đã đặt tối đa **6 cửa** rồi!', ephemeral: true });
+    }
+
+    // Get balance
+    const balance = await UserModel.getBalance(interaction.guildId, interaction.user.id);
+    const animalInfo = ANIMALS.find((a) => a.name === animal);
+
+    // Show modal to enter amount
+    const modal = new ModalBuilder()
+      .setCustomId(`baucua_modal_${animal}_${sessionId}`)
+      .setTitle(`Đặt cược ${animalInfo.emoji} ${animalInfo.label}`);
+
+    const amountInput = new TextInputBuilder()
+      .setCustomId('amount')
+      .setLabel('💰 Nhập số tiền cược:')
+      .setPlaceholder(`Số dư hiện tại: ${formatCoins(balance)} coin`)
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMinLength(1)
+      .setMaxLength(20);
+
+    const row = new ActionRowBuilder().addComponents(amountInput);
+    modal.addComponents(row);
+
+    await interaction.showModal(modal);
+  },
+
+  // Handle modal submission for betting
+  async handleModal(interaction) {
+    const customId = interaction.customId;
+    if (!customId.startsWith('baucua_modal_')) return;
+
+    const parts = customId.split('_');
+    const animal = parts[2]; // animal name
+    const sessionId = parts[3];
+
+    const session = activeSessions.get(interaction.guildId);
+    if (!session) {
+      return interaction.reply({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+    }
+
+    if (!session.isActive) {
+      return interaction.reply({ content: '❌ Phiên đã đóng!', ephemeral: true });
+    }
+
+    const amountStr = interaction.fields.getTextInputValue('amount');
+    const amount = parseInt(amountStr.replace(/[.,\s]/g, ''), 10);
+
+    if (isNaN(amount) || amount <= 0) {
+      return interaction.reply({ content: '❌ Số tiền không hợp lệ!', ephemeral: true });
+    }
+
+    if (amount < 1000) {
+      return interaction.reply({ content: '❌ Mức cược tối thiểu là **1,000** 🪙!', ephemeral: true });
+    }
+
+    const balance = await UserModel.getBalance(interaction.guildId, interaction.user.id);
+    if (balance < amount) {
+      return interaction.reply({
+        content: `❌ Không đủ coin!\n💰 Số dư hiện tại: **${formatCoins(balance)}** 🪙`,
+        ephemeral: true,
+      });
+    }
+
+    const result = await session.addBet(interaction.user.id, animal, amount);
+    if (!result.success) {
+      return interaction.reply({ content: `❌ ${result.message}`, ephemeral: true });
+    }
+
+    const animalInfo = ANIMALS.find((a) => a.name === animal);
+    return interaction.reply({
+      content:
+        `✅ Đặt cược thành công\n\n` +
+        `Cửa: **${animalInfo.emoji} ${animalInfo.label}**\n` +
+        `Tiền cược: **${formatCoins(amount)}** 🪙\n` +
+        `💰 Số dư còn lại: **${formatCoins(balance - amount)}** 🪙`,
+      ephemeral: true,
+    });
   },
 
   async handleBet(interaction) {

@@ -45,7 +45,7 @@ function buildRoleList(playerCount) {
   const wolfCount = Math.max(1, Math.floor(playerCount / 4));
 
   const wolfRoles = available.filter((r) => r.team === 'werewolf');
-  const villagerRoles = available.filter((r) => r.team === 'villager');
+  const villagerRoles = available.filter((r) => r.team === 'villager' && r.id !== 'villager');
   const neutralRoles = available.filter((r) => r.team === 'neutral');
 
   // Add neutrals first (1 max if available)
@@ -55,8 +55,6 @@ function buildRoleList(playerCount) {
     roles.push(role.id);
     neutralsAdded++;
   }
-
-  let villagersNeeded = playerCount - wolfCount - neutralsAdded;
 
   // Add wolf roles
   let wolvesAdded = 0;
@@ -73,19 +71,28 @@ function buildRoleList(playerCount) {
     wolvesAdded++;
   }
 
-  // Add villager roles
-  let villagersAdded = 0;
+  // Add special villager roles (doctor, seer, hunter, bodyguard) - NOT basic villager
+  let specialVillagerAdded = 0;
   for (const role of villagerRoles) {
-    if (villagersAdded >= villagersNeeded) break;
-    const count = Math.min(role.maxCount, villagersNeeded - villagersAdded);
+    const count = Math.min(role.maxCount, 1);
     for (let i = 0; i < count; i++) {
       roles.push(role.id);
-      villagersAdded++;
+      specialVillagerAdded++;
     }
   }
-  while (villagersAdded < villagersNeeded) {
+
+  // Calculate remaining slots for basic villagers - MAX 2
+  const filledBySpecial = roles.length;
+  const remainingForVillagers = playerCount - filledBySpecial;
+  const basicVillagerCount = Math.min(2, Math.max(0, remainingForVillagers));
+
+  for (let i = 0; i < basicVillagerCount; i++) {
     roles.push('villager');
-    villagersAdded++;
+  }
+
+  // If still need more roles, add extra wolves
+  while (roles.length < playerCount) {
+    roles.push('werewolf');
   }
 
   return roles;

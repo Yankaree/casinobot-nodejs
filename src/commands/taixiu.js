@@ -1,7 +1,8 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } = require('discord.js');
-const { ConfigModel } = require('../database/models');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ModalBuilder } = require('discord.js');
+const { ConfigModel, UserModel } = require('../database/models');
 const GameSession = require('../games/taixiu/session');
 const config = require('../config');
+const { formatCoins } = require('../utils/formatter');
 
 const activeSessions = new Map();
 const startLocks = new Map();
@@ -111,6 +112,108 @@ module.exports = {
       }
       return interaction.reply({ content: '⚠️ **Thông báo**\nGame chưa được bắt đầu!', ephemeral: true });
     }
+  },
+
+  // Handle button interactions for betting
+  async handleButton(interaction) {
+    const customId = interaction.customId;
+    if (!customId.startsWith('taixiu_bet_')) return;
+
+    const parts = customId.split('_');
+    const choice = parts[2]; // 'tai' or 'xiu'
+    const sessionId = parts[3];
+
+    const session = activeSessions.get(interaction.guildId);
+    if (!session) {
+      return interaction.reply({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+    }
+
+    if (!session.isActive) {
+      return interaction.reply({ content: '❌ Phiên đã đóng!', ephemeral: true });
+    }
+
+    if (session.isPaused) {
+      return interaction.reply({ content: '⏸️ Game đang tạm dừng!', ephemeral: true });
+    }
+
+    if (session.bettors.has(interaction.user.id)) {
+      return interaction.reply({ content: '❌ Bạn đã đặt cược rồi trong phiên này!', ephemeral: true });
+    }
+
+    // Get balance
+    const balance = await UserModel.getBalance(interaction.guildId, interaction.user.id);
+
+    // Show modal to enter amount
+    const modal = new ModalBuilder()
+      .setCustomId(`taixiu_modal_${choice}_${sessionId}`)
+      .setTitle(`Đặt cược ${choice === 'tai' ? 'TÀI' : 'XỈU'}`);
+
+    const amountInput = new TextInputBuilder()
+      .setCustomId('amount')
+      .setLabel('💰 Nhập số tiền cược:')
+      .setPlaceholder(`Số dư hiện tại: ${formatCoins(balance)} coin`)
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMinLength(1)
+      .setMaxLength(20);
+
+    const row = new ActionRowBuilder().addComponents(amountInput);
+    modal.addComponents(row);
+
+    await interaction.showModal(modal);
+  },
+
+  // Handle modal submission for betting
+  async handleModal(interaction) {
+    const customId = interaction.customId;
+    if (!customId.startsWith('taixiu_modal_')) return;
+
+    const parts = customId.split('_');
+    const choice = parts[2]; // 'tai' or 'xiu'
+    const sessionId = parts[3];
+
+    const session = activeSessions.get(interaction.guildId);
+    if (!session) {
+      return interaction.reply({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+    }
+
+    if (!session.isActive) {
+      return interaction.reply({ content: '❌ Phiên đã đóng!', ephemeral: true });
+    }
+
+    const amountStr = interaction.fields.getTextInputValue('amount');
+    const amount = parseInt(amountStr.replace(/[.,\s]/g, ''), 10);
+
+    if (isNaN(amount) || amount <= 0) {
+      return interaction.reply({ content: '❌ Số tiền không hợp lệ!', ephemeral: true });
+    }
+
+    if (amount < 1000) {
+      return interaction.reply({ content: '❌ Mức cược tối thiểu là **1,000** 🪙!', ephemeral: true });
+    }
+
+    const balance = await UserModel.getBalance(interaction.guildId, interaction.user.id);
+    if (balance < amount) {
+      return interaction.reply({
+        content: `❌ Không đủ coin!\n💰 Số dư hiện tại: **${formatCoins(balance)}** 🪙`,
+        ephemeral: true,
+      });
+    }
+
+    const result = await session.addBet(interaction.user.id, choice, amount);
+    if (!result.success) {
+      return interaction.reply({ content: `❌ ${result.message}`, ephemeral: true });
+    }
+
+    const choiceText = choice === 'tai' ? '🔴 TÀI' : '🔵 XỈU';
+    return interaction.reply({
+      content:
+        `✅ Đặt cược thành công\n\n` +
+        `Cửa: **${choiceText}**\n` +
+        `Tiền cược: **${formatCoins(amount)}** 🪙\n` +
+        `💰 Số dư còn lại: **${formatCoins(result.balance)}** 🪙`,
+      ephemeral: true,
+    });
   },
 
   getActiveSession(guildId) {

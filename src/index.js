@@ -71,6 +71,83 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
+  // Handle button interactions
+  if (interaction.isButton()) {
+    try {
+      const customId = interaction.customId;
+
+      // Tai Xiu button
+      if (customId.startsWith('taixiu_bet_')) {
+        const taixiuCmd = client.commands.get('taixiu');
+        if (taixiuCmd && taixiuCmd.handleButton) {
+          await taixiuCmd.handleButton(interaction);
+        }
+        return;
+      }
+
+      // Bau Cua button
+      if (customId.startsWith('baucua_select_')) {
+        const baucuaCmd = client.commands.get('baucua');
+        if (baucuaCmd && baucuaCmd.handleButton) {
+          await baucuaCmd.handleButton(interaction);
+        }
+        return;
+      }
+    } catch (error) {
+      console.error('Button interaction error:', error);
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: '❌ Lỗi hệ thống!', ephemeral: true });
+        }
+      } catch (e) {}
+    }
+    return;
+  }
+
+  // Handle message component interactions (select menus)
+  if (interaction.isStringSelectMenu()) {
+    try {
+      const customId = interaction.customId;
+
+      if (customId.startsWith('baucua_select_')) {
+        const baucuaCmd = client.commands.get('baucua');
+        if (baucuaCmd && baucuaCmd.handleSelectMenu) {
+          await baucuaCmd.handleSelectMenu(interaction);
+        }
+        return;
+      }
+    } catch (error) {
+      console.error('Select menu interaction error:', error);
+    }
+    return;
+  }
+
+  // Handle modal submissions
+  if (interaction.isModalSubmit()) {
+    try {
+      const customId = interaction.customId;
+
+      if (customId.startsWith('taixiu_modal_')) {
+        const taixiuCmd = client.commands.get('taixiu');
+        if (taixiuCmd && taixiuCmd.handleModal) {
+          await taixiuCmd.handleModal(interaction);
+        }
+        return;
+      }
+
+      if (customId.startsWith('baucua_modal_')) {
+        const baucuaCmd = client.commands.get('baucua');
+        if (baucuaCmd && baucuaCmd.handleModal) {
+          await baucuaCmd.handleModal(interaction);
+        }
+        return;
+      }
+    } catch (error) {
+      console.error('Modal submission error:', error);
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
