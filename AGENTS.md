@@ -28,6 +28,14 @@ Multi-guild Discord bot. Game state lives in-memory (`activeSessions` Map in bot
 - **Game engines**:
   - `src/games/taixiu/` — Tài Xỉu: `session.js`, `engine.js`, `reward.js`, `stats.js`
   - `src/games/baucua/` — Bầu Cua: `session.js`, `engine.js`, `reward.js`, `jackpot.js`, `stats.js`
+  - `src/games/card_games/` — Card game framework: Tiến Lên Miền Nam / Tiến Lên / Sâm Lốc.
+    - `engine/` — card, deck, hand, player, validator, comparator, turnManager (dùng chung, không hard-code luật)
+    - `rules/` — registry + config luật từng game (whiteWin, chop, thoi...) trong `config.js`
+    - `lobby/manager.js` — phòng & phiên lưu RAM (`cardSessions`), không lưu DB
+    - `session.js` — CardSession: chia bài → báo Sâm → lượt chơi (timer 30s) → trả thưởng
+    - `betting/` + `rewards/` — khóa cược bằng UserModel, trả thưởng + lưu `card_game_history`/`coin_transactions`
+    - `ui/` — embed, buttons/select menu, DM bài riêng tư
+    - `scripts/sim-card-games.js` — sim headless (chạy: `node scripts/sim-card-games.js`)
 - **Database**: `src/database/database.js` (SQLite Cloud connection + keepalive) + `models.js` (ORM layer)
 - **Utils**: `src/utils/formatter.js` (display helpers), `discordLogHook.js` (console → webhook)
 
@@ -77,4 +85,5 @@ BAU CUA
 - **One bet per user per round** — enforced by `this.bettors.has(userId)` in `GameSession.addBet()`.
 - **Bet amounts deducted immediately** on placement. If a round is paused mid-countdown, deducted coins are tracked in `this.bets` / `this.bettors` and are NOT automatically refunded.
 - **Deploy-commands.js uses global commands** (`Routes.applicationCommands`), not guild-scoped. Commands appear in all guilds the bot is in.
+- **Card games**: one lobby per channel (`/card create <game> [bet]`), host starts; bài mỗi người chỉ gửi qua DM (không bao giờ đăng lên channel). Interaction customId prefix `card:` được route trong `src/index.js`. Mọi nước đánh validate ở server (validator.js) — client chỉ gửi id lá bài. Hết giờ (30s) tự bỏ lượt / tự đánh lá nhỏ nhất nếu đang dẫn đầu. Restart bot → mất phòng đang mở.
 - **HTTP server on port 3000** (`src/server.js`) — keeps the bot alive on hosting platforms. `GET /ping` → `pong`.

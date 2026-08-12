@@ -814,6 +814,32 @@ const TransactionModel = {
 };
 
 // ═══════════════════════════════════════════
+// CARD GAME HISTORY MODEL
+// ═══════════════════════════════════════════
+
+const CardGameHistoryModel = {
+  async create({ guildId, game, sessionId, players, winnerId, result, totalBet }) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'INSERT INTO card_game_history (guild_id, game, session_id, players, winner_id, result, total_bet) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        guildId, game, sessionId, players, winnerId, result, totalBet
+      );
+    });
+  },
+
+  async getRecent(guildId, limit = 10) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        'SELECT * FROM card_game_history WHERE guild_id = ? ORDER BY id DESC LIMIT ?',
+        guildId, limit
+      );
+    });
+  },
+};
+
+// ═══════════════════════════════════════════
 // WEREWOLF MODELS
 // ═══════════════════════════════════════════
 
@@ -910,4 +936,5 @@ module.exports = {
   TransactionModel,
   WerewolfLobbyModel,
   WerewolfHistoryModel,
+  CardGameHistoryModel,
 };

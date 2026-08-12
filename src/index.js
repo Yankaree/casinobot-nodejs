@@ -76,6 +76,15 @@ client.on('interactionCreate', async (interaction) => {
     try {
       const customId = interaction.customId;
 
+      // Card game buttons (Tiến Lên / Sâm Lốc)
+      if (customId.startsWith('card:')) {
+        const cardCmd = client.commands.get('card');
+        if (cardCmd && cardCmd.handleButton) {
+          await cardCmd.handleButton(interaction);
+        }
+        return;
+      }
+
       // Tai Xiu button
       if (customId.startsWith('taixiu_bet_')) {
         const taixiuCmd = client.commands.get('taixiu');
@@ -109,6 +118,15 @@ client.on('interactionCreate', async (interaction) => {
     try {
       const customId = interaction.customId;
 
+      // Card game select menu (chọn bài)
+      if (customId.startsWith('card:')) {
+        const cardCmd = client.commands.get('card');
+        if (cardCmd && cardCmd.handleSelectMenu) {
+          await cardCmd.handleSelectMenu(interaction);
+        }
+        return;
+      }
+
       if (customId.startsWith('baucua_select_')) {
         const baucuaCmd = client.commands.get('baucua');
         if (baucuaCmd && baucuaCmd.handleSelectMenu) {
@@ -126,6 +144,15 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isModalSubmit()) {
     try {
       const customId = interaction.customId;
+
+      // Card game modal (dự phòng mở rộng)
+      if (customId.startsWith('card:')) {
+        const cardCmd = client.commands.get('card');
+        if (cardCmd && cardCmd.handleModal) {
+          await cardCmd.handleModal(interaction);
+        }
+        return;
+      }
 
       if (customId.startsWith('taixiu_modal_')) {
         const taixiuCmd = client.commands.get('taixiu');

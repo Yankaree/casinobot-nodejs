@@ -107,6 +107,17 @@ const SCHEMA_SQL = [
     FOREIGN KEY (session_id) REFERENCES global_taixiu_sessions(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
   )`,
+  `CREATE TABLE IF NOT EXISTS card_game_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    game TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    players TEXT NOT NULL,
+    winner_id TEXT,
+    result TEXT NOT NULL,
+    total_bet INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS werewolf_lobbies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     guild_id TEXT NOT NULL,
@@ -136,6 +147,7 @@ const SCHEMA_SQL = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_coin_transactions_guild ON coin_transactions (guild_id)`,
   `CREATE INDEX IF NOT EXISTS idx_coin_transactions_discord ON coin_transactions (discord_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_card_game_history_guild ON card_game_history (guild_id)`,
 ];
 
 function sqlWithTimeout(connection, sql, params) {
