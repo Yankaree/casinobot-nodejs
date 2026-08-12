@@ -4,7 +4,7 @@ const {
   ChannelType,
   EmbedBuilder,
 } = require('discord.js');
-const { GlobalTaixiuChannelModel } = require('../database/models');
+const { GlobalTaixiuChannelModel, JackpotModel } = require('../database/models');
 const GameSession = require('../games/global-taixiu/session');
 const { getStatsEmbed, getJackpotEmbed } = require('../games/global-taixiu/stats');
 const { refreshRegisteredChannels } = require('../games/global-taixiu/chat/listener');
@@ -58,6 +58,14 @@ module.exports = {
     )
     .addSubcommand((sub) =>
       sub.setName('jackpot').setDescription('Xem hũ Tài Xỉu Global')
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('addjackpot')
+        .setDescription('Cộng tiền vào hũ Tài Xỉu Global')
+        .addIntegerOption((option) =>
+          option.setName('amount').setDescription('Số coin cộng vào hũ').setRequired(true)
+        )
     )
     .addSubcommand((sub) =>
       sub
@@ -233,6 +241,24 @@ module.exports = {
       return interaction.reply({
         content: '⚠️ **Thông báo**\nGame chưa được bắt đầu!',
         ephemeral: true,
+      });
+    }
+
+    if (subcommand === 'addjackpot') {
+      const amount = interaction.options.getInteger('amount');
+      if (amount <= 0) {
+        return interaction.reply({ content: '❌ **Lỗi**\nSố coin phải lớn hơn 0!', ephemeral: true });
+      }
+      if (amount > 10000000000) {
+        return interaction.reply({ content: '❌ **Lỗi**\nSố coin tối đa là **10,000,000,000**!', ephemeral: true });
+      }
+      await JackpotModel.addAmount('global', 'globaltaixiu', amount);
+      const newBalance = await JackpotModel.getBalance('global', 'globaltaixiu');
+      return interaction.reply({
+        content:
+          `✅ **Thành công**\n` +
+          `Đã cộng **${formatCoins(amount)}** 🪙 vào hũ Tài Xỉu Global\n` +
+          `💰 Hũ hiện tại: **${formatCoins(newBalance)}** 🪙`,
       });
     }
   },
