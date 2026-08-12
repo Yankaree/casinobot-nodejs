@@ -1,4 +1,6 @@
 const { getDb, queryWithRetry } = require('./database');
+const config = require('../config');
+const leaderboardCache = require('../utils/leaderboardCache');
 
 // ═══════════════════════════════════════════
 // USER MODEL (shared)
@@ -666,6 +668,152 @@ const GlobalTaixiuBetModel = {
 };
 
 // ═══════════════════════════════════════════
+// COIN TRANSACTION MODEL (leaderboard)
+// ═══════════════════════════════════════════
+
+const TransactionModel = {
+  async record({ guildId, discordId, amount, type, game }) {
+    try {
+      await queryWithRetry(async () => {
+        const db = getDb();
+        await db.sql(
+          'INSERT INTO coin_transactions (guild_id, discord_id, amount, type, game) VALUES (?, ?, ?, ?, ?)',
+          guildId, discordId, amount, type, game
+        );
+      });
+      if (Math.abs(amount) >= config.leaderboard.largeTxThreshold) {
+        leaderboardCache.invalidateServer(guildId);
+        leaderboardCache.invalidateGlobal();
+      }
+    } catch (err) {
+      console.error(`[Transaction] Failed to record ${type} for ${discordId}:`, err.message);
+    }
+  },
+
+  async getServerTop(guildId, limit = 10) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        `SELECT discord_id, SUM(amount) as net, COUNT(*) as tx_count
+         FROM coin_transactions
+         WHERE guild_id = ?
+         GROUP BY discord_id
+         ORDER BY net DESC
+         LIMIT ?`,
+        guildId, limit
+      );
+    });
+  },
+
+  async getGlobalTop(limit = 10) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      return db.sql(
+        `SELECT discord_id, SUM(amount) as net, COUNT(*) as tx_count
+         FROM coin_transactions
+         GROUP BY discord_id
+         ORDER BY net DESC
+         LIMIT ?`,
+        limit
+      );
+    });
+  },
+
+  async getServerRank(guildId, discordId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT COUNT(*) + 1 as rank FROM (
+           SELECT discord_id FROM coin_transactions
+           WHERE guild_id = ?
+           GROUP BY discord_id
+           HAVING SUM(amount) > COALESCE(
+             (SELECT SUM(amount) FROM coin_transactions WHERE guild_id = ? AND discord_id = ?), 0)
+         )`,
+        guildId, guildId, discordId
+      );
+      return rows[0]?.rank || 1;
+    });
+  },
+
+  async getGlobalRank(discordId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT COUNT(*) + 1 as rank FROM (
+           SELECT discord_id FROM coin_transactions
+           GROUP BY discord_id
+           HAVING SUM(amount) > COALESCE(
+             (SELECT SUM(amount) FROM coin_transactions WHERE discord_id = ?), 0)
+         )`,
+        discordId
+      );
+      return rows[0]?.rank || 1;
+    });
+  },
+
+  async getUserStats(guildId, discordId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT
+          COALESCE(SUM(CASE WHEN type = 'win' THEN 1 ELSE 0 END), 0) as wins,
+          COALESCE(SUM(CASE WHEN type = 'lose' THEN 1 ELSE 0 END), 0) as losses,
+          COALESCE(SUM(CASE WHEN type = 'jackpot' THEN 1 ELSE 0 END), 0) as jackpots,
+          COALESCE(SUM(amount), 0) as net
+         FROM coin_transactions WHERE guild_id = ? AND discord_id = ?`,
+        guildId, discordId
+      );
+      const favoriteRows = await db.sql(
+        `SELECT game, COUNT(*) as cnt
+         FROM coin_transactions
+         WHERE guild_id = ? AND discord_id = ? AND type = 'win'
+         GROUP BY game ORDER BY cnt DESC LIMIT 1`,
+        guildId, discordId
+      );
+      const row = rows[0] || { wins: 0, losses: 0, jackpots: 0, net: 0 };
+      return {
+        wins: row.wins || 0,
+        losses: row.losses || 0,
+        jackpots: row.jackpots || 0,
+        net: row.net || 0,
+        favoriteGame: favoriteRows[0]?.game || null,
+      };
+    });
+  },
+
+  async getGlobalUserStats(discordId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT
+          COALESCE(SUM(CASE WHEN type = 'win' THEN 1 ELSE 0 END), 0) as wins,
+          COALESCE(SUM(CASE WHEN type = 'lose' THEN 1 ELSE 0 END), 0) as losses,
+          COALESCE(SUM(CASE WHEN type = 'jackpot' THEN 1 ELSE 0 END), 0) as jackpots,
+          COALESCE(SUM(amount), 0) as net
+         FROM coin_transactions WHERE discord_id = ?`,
+        discordId
+      );
+      const favoriteRows = await db.sql(
+        `SELECT game, COUNT(*) as cnt
+         FROM coin_transactions
+         WHERE discord_id = ? AND type = 'win'
+         GROUP BY game ORDER BY cnt DESC LIMIT 1`,
+        discordId
+      );
+      const row = rows[0] || { wins: 0, losses: 0, jackpots: 0, net: 0 };
+      return {
+        wins: row.wins || 0,
+        losses: row.losses || 0,
+        jackpots: row.jackpots || 0,
+        net: row.net || 0,
+        favoriteGame: favoriteRows[0]?.game || null,
+      };
+    });
+  },
+};
+
+// ═══════════════════════════════════════════
 // WEREWOLF MODELS
 // ═══════════════════════════════════════════
 
@@ -759,6 +907,7 @@ module.exports = {
   GlobalTaixiuChannelModel,
   GlobalTaixiuSessionModel,
   GlobalTaixiuBetModel,
+  TransactionModel,
   WerewolfLobbyModel,
   WerewolfHistoryModel,
 };

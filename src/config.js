@@ -22,6 +22,13 @@ module.exports = {
     maxReward: 100000,
   },
 
+  leaderboard: {
+    topCount: 10,
+    cacheTtlMs: 2 * 60 * 1000, // 2 phút
+    largeTxThreshold: 1000000, // Giao dịch lớn → xóa cache ngay
+    cooldownMs: 10 * 1000, // 10 giây chống spam
+  },
+
   adminUsers: ['924487653456511048'],
 
   colors: {

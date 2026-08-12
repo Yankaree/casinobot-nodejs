@@ -1,4 +1,4 @@
-const { UserModel, BaucuaBetModel, JackpotModel } = require('../../database/models');
+const { UserModel, BaucuaBetModel, JackpotModel, TransactionModel } = require('../../database/models');
 const { countAnimal, getTripleAnimal } = require('./engine');
 const { GAME_NAME } = require('./jackpot');
 
@@ -36,10 +36,24 @@ async function processRewards(guildId, sessionId, results, totalBets) {
 
     if (payout > 0) {
       await UserModel.addCoins(guildId, bet.discord_id, payout);
+      await TransactionModel.record({
+        guildId,
+        discordId: bet.discord_id,
+        amount: payout,
+        type: 'win',
+        game: GAME_NAME,
+      });
       await UserModel.addWin(guildId, bet.discord_id);
       await BaucuaBetModel.updateResult(sessionId, bet.user_id, bet.animal, true, payout);
     } else {
       await UserModel.addLose(guildId, bet.discord_id);
+      await TransactionModel.record({
+        guildId,
+        discordId: bet.discord_id,
+        amount: -bet.amount,
+        type: 'lose',
+        game: GAME_NAME,
+      });
       await BaucuaBetModel.updateResult(sessionId, bet.user_id, bet.animal, false, 0);
     }
   }
@@ -52,6 +66,13 @@ async function processRewards(guildId, sessionId, results, totalBets) {
       const jackpotPayout = Math.floor(jackpotBalance * share);
       if (jackpotPayout > 0) {
         await UserModel.addCoins(guildId, winner.discord_id, jackpotPayout);
+        await TransactionModel.record({
+          guildId,
+          discordId: winner.discord_id,
+          amount: jackpotPayout,
+          type: 'jackpot',
+          game: GAME_NAME,
+        });
         const existingPayout = multiplierPayouts.get(`${winner.user_id}_${winner.animal}`) || 0;
         await BaucuaBetModel.updateResult(
           sessionId, winner.user_id, winner.animal, true,

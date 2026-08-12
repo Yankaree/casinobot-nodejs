@@ -125,6 +125,17 @@ const SCHEMA_SQL = [
     duration_ms INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS coin_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_id TEXT NOT NULL,
+    guild_id TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('win', 'lose', 'reward', 'bonus', 'jackpot')),
+    game TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_coin_transactions_guild ON coin_transactions (guild_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_coin_transactions_discord ON coin_transactions (discord_id)`,
 ];
 
 function sqlWithTimeout(connection, sql, params) {

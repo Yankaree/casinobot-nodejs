@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { UserModel } = require('../database/models');
+const { UserModel, TransactionModel } = require('../database/models');
 const config = require('../config');
 const { formatCoins, formatTime } = require('../utils/formatter');
 
@@ -43,6 +43,13 @@ module.exports = {
 
       const reward = crypto.randomInt(config.work.minReward, config.work.maxReward + 1);
       await UserModel.addCoins(interaction.guildId, interaction.user.id, reward);
+      await TransactionModel.record({
+        guildId: interaction.guildId,
+        discordId: interaction.user.id,
+        amount: reward,
+        type: 'reward',
+        game: 'work',
+      });
       await UserModel.setLastWork(
         interaction.guildId,
         interaction.user.id,

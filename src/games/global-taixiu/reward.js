@@ -1,4 +1,4 @@
-const { UserModel, GlobalTaixiuBetModel, JackpotModel } = require('../../database/models');
+const { UserModel, GlobalTaixiuBetModel, JackpotModel, TransactionModel } = require('../../database/models');
 const config = require('../../config');
 
 const GAME_NAME = 'globaltaixiu';
@@ -43,6 +43,14 @@ async function processRewards(sessionId, result, jackpot, bets) {
       await UserModel.addCoins(bet.guild_id, bet.discord_id, finalPayout);
     }
 
+    await TransactionModel.record({
+      guildId: bet.guild_id,
+      discordId: bet.discord_id,
+      amount: finalPayout,
+      type: jackpot ? 'jackpot' : 'win',
+      game: GAME_NAME,
+    });
+
     await UserModel.addWin(bet.guild_id, bet.discord_id);
     await GlobalTaixiuBetModel.updateResult(sessionId, bet.user_id, true, finalPayout);
   }
@@ -52,6 +60,13 @@ async function processRewards(sessionId, result, jackpot, bets) {
   }
 
   for (const bet of losers) {
+    await TransactionModel.record({
+      guildId: bet.guild_id,
+      discordId: bet.discord_id,
+      amount: -bet.amount,
+      type: 'lose',
+      game: GAME_NAME,
+    });
     await UserModel.addLose(bet.guild_id, bet.discord_id);
     await GlobalTaixiuBetModel.updateResult(sessionId, bet.user_id, false, 0);
   }

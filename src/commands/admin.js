@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { UserModel, JackpotModel } = require('../database/models');
+const { UserModel, JackpotModel, TransactionModel } = require('../database/models');
 const { formatCoins } = require('../utils/formatter');
 const config = require('../config');
 
@@ -61,6 +61,13 @@ module.exports = {
           return interaction.reply({ content: '❌ **Lỗi**\nSố coin tối đa là **10,000,000**!', ephemeral: true });
         }
         await UserModel.addCoins(interaction.guildId, user.id, amount);
+        await TransactionModel.record({
+          guildId: interaction.guildId,
+          discordId: user.id,
+          amount,
+          type: 'bonus',
+          game: 'admin',
+        });
         const newBalance = await UserModel.getBalance(interaction.guildId, user.id);
         return interaction.reply({
           content: `✅ **Thành công**\nĐã tặng **${formatCoins(amount)}** 🪙 cho ${user}\n💰 Số dư mới: **${formatCoins(newBalance)}** 🪙`,
