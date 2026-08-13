@@ -8,10 +8,6 @@ module.exports = {
   game: {
     sessionDuration: 50,
     betMultiplier: 2.5,
-    jackpotMultiplier: 5.0,
-    jackpotChance: [1, 1, 1], // Triple 1
-    jackpotChance2: [6, 6, 6], // Triple 6
-    jackpotPercent: 0.05,
     startingCoins: 100,
     maxEmptyRounds: 3,
   },
@@ -27,11 +23,6 @@ module.exports = {
     cacheTtlMs: 2 * 60 * 1000, // 2 phút
     largeTxThreshold: 1000000, // Giao dịch lớn → xóa cache ngay
     cooldownMs: 10 * 1000, // 10 giây chống spam
-  },
-
-  jackpot: {
-    dailyResetHourGmt7: 7, // Reset hũ hằng ngày lúc 7:00 (GMT+7)
-    defaultBalance: 1000000000, // Giá trị hũ sau khi reset (1 tỷ)
   },
 
   loan: {

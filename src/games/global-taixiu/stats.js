@@ -1,10 +1,7 @@
-const { GlobalTaixiuSessionModel, JackpotModel } = require('../../database/models');
+const { GlobalTaixiuSessionModel } = require('../../database/models');
 const { EmbedBuilder } = require('discord.js');
 const config = require('../../config');
 const { formatCoins } = require('../../utils/formatter');
-
-const GLOBAL_KEY = 'global';
-const GAME_NAME = 'globaltaixiu';
 
 async function getStatsEmbed() {
   const stats = await GlobalTaixiuSessionModel.getStats();
@@ -42,14 +39,4 @@ async function getStatsEmbed() {
     .setTimestamp();
 }
 
-async function getJackpotEmbed() {
-  const jackpot = await JackpotModel.getBalance(GLOBAL_KEY, GAME_NAME);
-
-  return new EmbedBuilder()
-    .setTitle('💰 HŨ TÀI XỈU GLOBAL')
-    .setDescription(`**${formatCoins(jackpot)}** 🪙`)
-    .setColor(config.colors.primary)
-    .setTimestamp();
-}
-
-module.exports = { getStatsEmbed, getJackpotEmbed };
+module.exports = { getStatsEmbed };

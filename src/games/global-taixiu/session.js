@@ -265,7 +265,7 @@ class GameSession extends EventEmitter {
     await GlobalTaixiuSessionModel.finish(this.sessionId, null, null, null, result, totalBets);
 
     const bets = await GlobalTaixiuBetModel.getSessionBets(this.sessionId);
-    await processRewards(this.sessionId, result, false, bets);
+    await processRewards(this.sessionId, result, bets);
 
     const updatedBets = await GlobalTaixiuBetModel.getSessionBets(this.sessionId);
 

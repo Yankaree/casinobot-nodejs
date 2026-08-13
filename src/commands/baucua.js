@@ -11,7 +11,6 @@ const {
 const { ConfigModel, UserModel } = require('../database/models');
 const GameSession = require('../games/baucua/session');
 const { ANIMALS } = require('../games/baucua/engine');
-const { getJackpotEmbed, resetJackpot } = require('../games/baucua/jackpot');
 const { getStatsEmbed } = require('../games/baucua/stats');
 const config = require('../config');
 const { formatCoins } = require('../utils/formatter');
@@ -72,12 +71,6 @@ module.exports = {
             .setDescription('Số coin đặt cược')
             .setRequired(true)
         )
-    )
-    .addSubcommand((sub) =>
-      sub.setName('jackpot').setDescription('Xem hũ Bầu Cua')
-    )
-    .addSubcommand((sub) =>
-      sub.setName('resetjackpot').setDescription('Reset hũ Bầu Cua')
     ),
 
   async execute(interaction) {
@@ -92,11 +85,6 @@ module.exports = {
 
     if (subcommand === 'stats') {
       const embed = await getStatsEmbed(interaction.guildId);
-      return interaction.reply({ embeds: [embed] });
-    }
-
-    if (subcommand === 'jackpot') {
-      const embed = await getJackpotEmbed(interaction.guildId);
       return interaction.reply({ embeds: [embed] });
     }
 
@@ -127,19 +115,6 @@ module.exports = {
 
     if (subcommand === 'bet') {
       return this.handleBet(interaction);
-    }
-
-    if (subcommand === 'resetjackpot') {
-      if (!isAdminConfig && !isAdminDiscord) {
-        return interaction.reply({
-          content: '❌ Chỉ admin mới dùng được lệnh này!',
-          ephemeral: true,
-        });
-      }
-      await resetJackpot(interaction.guildId);
-      return interaction.reply({
-        content: '✅ **Thành công**\nĐã reset hũ Bầu Cua!',
-      });
     }
 
     if (!isAdminConfig && !isAdminDiscord) {

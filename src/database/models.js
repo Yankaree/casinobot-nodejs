@@ -1,5 +1,4 @@
 const { getDb, queryWithRetry } = require('./database');
-const config = require('../config');
 const leaderboardCache = require('../utils/leaderboardCache');
 
 // ═══════════════════════════════════════════
@@ -147,74 +146,6 @@ const ConfigModel = {
   async getBaucuaChannel(guildId) {
     const cfg = await this.get(guildId);
     return cfg.baucua_channel_id;
-  },
-};
-
-// ═══════════════════════════════════════════
-// JACKPOT MODEL (per-game)
-// ═══════════════════════════════════════════
-
-const JackpotModel = {
-  async get(guildId, gameName) {
-    return queryWithRetry(async () => {
-      const db = getDb();
-      const rows = await db.sql(
-        'SELECT * FROM jackpots WHERE guild_id = ? AND game_name = ?',
-        guildId, gameName
-      );
-      if (rows.length > 0) return rows[0];
-
-      await db.sql(
-        'INSERT INTO jackpots (guild_id, game_name, balance) VALUES (?, ?, 100000000)',
-        guildId, gameName
-      );
-      const newRows = await db.sql(
-        'SELECT * FROM jackpots WHERE guild_id = ? AND game_name = ?',
-        guildId, gameName
-      );
-      return newRows[0];
-    });
-  },
-
-  async getBalance(guildId, gameName) {
-    const jp = await this.get(guildId, gameName);
-    return jp.balance;
-  },
-
-  async addAmount(guildId, gameName, amount) {
-    return queryWithRetry(async () => {
-      const db = getDb();
-      await this.get(guildId, gameName);
-      await db.sql(
-        'UPDATE jackpots SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE guild_id = ? AND game_name = ?',
-        amount, guildId, gameName
-      );
-      return this.getBalance(guildId, gameName);
-    });
-  },
-
-  async reset(guildId, gameName) {
-    return queryWithRetry(async () => {
-      const db = getDb();
-      await this.get(guildId, gameName);
-      await db.sql(
-        'UPDATE jackpots SET balance = 0, updated_at = CURRENT_TIMESTAMP WHERE guild_id = ? AND game_name = ?',
-        guildId, gameName
-      );
-      return 0;
-    });
-  },
-
-  // Reset toàn bộ hũ (mọi server + hũ global) về giá trị mặc định hằng ngày
-  async resetAllToDefault() {
-    return queryWithRetry(async () => {
-      const db = getDb();
-      await db.sql(
-        'UPDATE jackpots SET balance = ?, updated_at = CURRENT_TIMESTAMP',
-        config.jackpot.defaultBalance
-      );
-      return config.jackpot.defaultBalance;
-    });
   },
 };
 
@@ -766,7 +697,6 @@ const TransactionModel = {
         `SELECT
           COALESCE(SUM(CASE WHEN type = 'win' THEN 1 ELSE 0 END), 0) as wins,
           COALESCE(SUM(CASE WHEN type = 'lose' THEN 1 ELSE 0 END), 0) as losses,
-          COALESCE(SUM(CASE WHEN type = 'jackpot' THEN 1 ELSE 0 END), 0) as jackpots,
           COALESCE(SUM(amount), 0) as net
          FROM coin_transactions WHERE guild_id = ? AND discord_id = ?`,
         guildId, discordId
@@ -778,11 +708,10 @@ const TransactionModel = {
          GROUP BY game ORDER BY cnt DESC LIMIT 1`,
         guildId, discordId
       );
-      const row = rows[0] || { wins: 0, losses: 0, jackpots: 0, net: 0 };
+      const row = rows[0] || { wins: 0, losses: 0, net: 0 };
       return {
         wins: row.wins || 0,
         losses: row.losses || 0,
-        jackpots: row.jackpots || 0,
         net: row.net || 0,
         favoriteGame: favoriteRows[0]?.game || null,
       };
@@ -796,7 +725,6 @@ const TransactionModel = {
         `SELECT
           COALESCE(SUM(CASE WHEN type = 'win' THEN 1 ELSE 0 END), 0) as wins,
           COALESCE(SUM(CASE WHEN type = 'lose' THEN 1 ELSE 0 END), 0) as losses,
-          COALESCE(SUM(CASE WHEN type = 'jackpot' THEN 1 ELSE 0 END), 0) as jackpots,
           COALESCE(SUM(amount), 0) as net
          FROM coin_transactions WHERE discord_id = ?`,
         discordId
@@ -808,11 +736,10 @@ const TransactionModel = {
          GROUP BY game ORDER BY cnt DESC LIMIT 1`,
         discordId
       );
-      const row = rows[0] || { wins: 0, losses: 0, jackpots: 0, net: 0 };
+      const row = rows[0] || { wins: 0, losses: 0, net: 0 };
       return {
         wins: row.wins || 0,
         losses: row.losses || 0,
-        jackpots: row.jackpots || 0,
         net: row.net || 0,
         favoriteGame: favoriteRows[0]?.game || null,
       };
@@ -991,7 +918,6 @@ const WerewolfHistoryModel = {
 module.exports = {
   UserModel,
   ConfigModel,
-  JackpotModel,
   SessionModel,
   BetModel,
   BaucuaSessionModel,

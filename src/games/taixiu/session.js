@@ -290,7 +290,7 @@ class GameSession extends EventEmitter {
     await SessionModel.finish(this.sessionId, null, null, null, result, totalBets);
 
     const bets = await BetModel.getSessionBets(this.sessionId);
-    await processRewards(this.guildId, this.sessionId, result, false, bets);
+    await processRewards(this.guildId, this.sessionId, result, bets);
 
     const updatedBets = await BetModel.getSessionBets(this.sessionId);
 

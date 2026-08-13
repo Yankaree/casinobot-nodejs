@@ -52,7 +52,6 @@ module.exports = {
             { name: '🏆 Thắng', value: `${formatCoins(stats.wins)} ván`, inline: true },
             { name: '💔 Thua', value: `${formatCoins(stats.losses)} ván`, inline: true },
             { name: '📈 Tỷ lệ thắng', value: `${winRate}%`, inline: true },
-            { name: '🔥 Jackpot', value: `${formatCoins(stats.jackpots)} lần`, inline: true },
             {
               name: '🎲 Trò chơi yêu thích',
               value: stats.favoriteGame ? getGameLabel(stats.favoriteGame) : 'Chưa chơi',

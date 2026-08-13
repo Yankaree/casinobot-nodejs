@@ -10,7 +10,6 @@ const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_DELAY_MS = 2_000;
 const SQL_TIMEOUT_MS = 10_000;
 
-const DEFAULT_JACKPOT = 10_000_000_000;
 const DEFAULT_COIN = 100;
 
 const SCHEMA_SQL = [
@@ -29,13 +28,6 @@ const SCHEMA_SQL = [
     guild_id TEXT PRIMARY KEY,
     taixiu_channel_id TEXT,
     baucua_channel_id TEXT
-  )`,
-  `CREATE TABLE IF NOT EXISTS jackpots (
-    guild_id TEXT NOT NULL,
-    game_name TEXT NOT NULL,
-    balance INTEGER DEFAULT ${DEFAULT_JACKPOT},
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (guild_id, game_name)
   )`,
   `CREATE TABLE IF NOT EXISTS taixiu_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,18 +180,6 @@ async function connectDb() {
 
   for (const sql of SCHEMA_SQL) {
     await sqlWithTimeout(db, sql);
-  }
-
-  const guilds = await sqlWithTimeout(db, 'SELECT DISTINCT guild_id FROM users');
-  for (const row of guilds) {
-    await sqlWithTimeout(db,
-      `INSERT OR IGNORE INTO jackpots (guild_id, game_name, balance) VALUES (?, 'taixiu', ${DEFAULT_JACKPOT})`,
-      row.guild_id
-    );
-    await sqlWithTimeout(db,
-      `INSERT OR IGNORE INTO jackpots (guild_id, game_name, balance) VALUES (?, 'baucua', ${DEFAULT_JACKPOT})`,
-      row.guild_id
-    );
   }
 
   console.log('✅ Connected to SQLite Cloud');

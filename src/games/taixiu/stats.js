@@ -39,15 +39,4 @@ async function getStatsEmbed(guildId) {
     .setTimestamp();
 }
 
-async function getJackpotEmbed(guildId) {
-  const { JackpotModel } = require('../../database/models');
-  const jackpot = await JackpotModel.getBalance(guildId, 'taixiu');
-
-  return new EmbedBuilder()
-    .setTitle('💰 HŨ TÀI XỈU')
-    .setDescription(`**${formatCoins(jackpot)}** 🪙`)
-    .setColor(config.colors.primary)
-    .setTimestamp();
-}
-
-module.exports = { getStatsEmbed, getJackpotEmbed };
+module.exports = { getStatsEmbed };

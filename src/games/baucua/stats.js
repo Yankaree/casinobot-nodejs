@@ -1,7 +1,6 @@
-const { BaucuaSessionModel, JackpotModel } = require('../../database/models');
+const { BaucuaSessionModel } = require('../../database/models');
 const { EmbedBuilder } = require('discord.js');
 const { ANIMALS } = require('./engine');
-const { GAME_NAME } = require('./jackpot');
 const { formatCoins, formatProgressBar } = require('../../utils/formatter');
 const config = require('../../config');
 

@@ -20,7 +20,7 @@ All user-facing strings (embed text, error messages, embed titles) are in **Viet
 
 ## Architecture
 
-Multi-guild Discord bot. Game state lives in-memory (`activeSessions` Map in both `src/commands/taixiu.js` and `src/commands/baucua.js`), keyed by guildId. Jackpot is per-game per-guild in the `jackpots` table. User balances are per-guild (same user, different coins on each server). A bot restart clears all active game sessions.
+Multi-guild Discord bot. Game state lives in-memory (`activeSessions` Map in both `src/commands/taixiu.js` and `src/commands/baucua.js`), keyed by guildId. User balances are per-guild (same user, different coins on each server). A bot restart clears all active game sessions.
 
 - **Entry**: `src/index.js` → loads commands, boots DB, starts HTTP keepalive server
 - **Config**: `src/config.js` — all game params, admin IDs, colors
@@ -28,7 +28,7 @@ Multi-guild Discord bot. Game state lives in-memory (`activeSessions` Map in bot
 - **Game engines**:
   - `src/games/taixiu/` — Tài Xỉu: `session.js`, `engine.js`, `reward.js`, `stats.js`
   - `src/games/taixiu/deathmatch/` — **Tài Xỉu Deathmatch**: nhánh độc lập mở rộng `GameSession` Tài Xỉu (`session.js` extends `../session`), RAM-only (Battle Coin, lobby, event, spectator, final round, ranking). `lobby.js`, `events.js`; lệnh `/txdeath`
-  - `src/games/baucua/` — Bầu Cua: `session.js`, `engine.js`, `reward.js`, `jackpot.js`, `stats.js`
+  - `src/games/baucua/` — Bầu Cua: `session.js`, `engine.js`, `reward.js`, `stats.js`
   - `src/games/card_games/` — Card game framework: Tiến Lên Miền Nam / Tiến Lên / Sâm Lốc.
     - `engine/` — card, deck, hand, player, validator, comparator, turnManager (dùng chung, không hard-code luật)
     - `rules/` — registry + config luật từng game (whiteWin, chop, thoi...) trong `config.js`
@@ -49,10 +49,8 @@ SHARED
 ├── users            (id, guild_id, discord_id, coin DEFAULT 10000, win_count, lose_count, last_work_at, created_at)
 │                    UNIQUE(guild_id, discord_id)
 ├── config           (guild_id PK, taixiu_channel_id, baucua_channel_id)
-├── jackpots         (guild_id, game_name, balance DEFAULT 100000000, updated_at)
-│                    PK(guild_id, game_name) — per-game: 'taixiu' | 'baucua'
 └── loans            (id, guild_id, discord_id, amount, rate, debt, status 'active'|'repaid', created_at, updated_at)
-                     — vay tiền với lãi: debt = amount × (1 + rate); reset hũ hằng ngày 7:00 GMT+7 (config.jackpot)
+                     — vay tiền với lãi: debt = amount × (1 + rate)
 
 TAI XIU
 ├── taixiu_sessions  (id PK, guild_id, dice1, dice2, dice3, result, total_bet, created_at)
@@ -68,8 +66,7 @@ BAU CUA
 ### Default values
 
 - `users.coin`: 10,000
-- `jackpots.balance`: 100,000,000 (both games)
-- `config`: null channels, no default jackpot (jackpots in separate table)
+- `config`: null channels
 
 ## Key files to read first
 

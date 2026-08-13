@@ -2,7 +2,6 @@ const { EventEmitter } = require('events');
 const { BaucuaSessionModel, BaucuaBetModel, UserModel } = require('../../database/models');
 const { rollDice, isTriple, formatResults, ANIMALS, countAnimal } = require('./engine');
 const { processRewards } = require('./reward');
-const { addToJackpot } = require('./jackpot');
 const config = require('../../config');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { formatCoins, formatTime } = require('../../utils/formatter');
@@ -75,7 +74,6 @@ class GameSession extends EventEmitter {
 
   createEmbed() {
     const totalBets = ANIMALS.reduce((sum, a) => sum + this.bets[a.name], 0);
-    const jackpotPercent = Math.floor(totalBets * 0.05);
 
     const animalLines = ANIMALS.map((a) => {
       const amount = this.bets[a.name];
@@ -97,8 +95,7 @@ class GameSession extends EventEmitter {
         `**Phiên #${this.sessionId}**\n` +
         `⏳ Còn **${formatTime(this.timeLeft)}**\n\n` +
         `${animalLines.join('\n')}\n\n` +
-        `💰 **Tổng cược:** ${formatCoins(totalBets)} 🪙\n` +
-        `💎 **Jackpot:** ${formatCoins(jackpotPercent)} 🪙`
+        `💰 **Tổng cược:** ${formatCoins(totalBets)} 🪙`
       );
     }
 
@@ -132,7 +129,7 @@ class GameSession extends EventEmitter {
     return rows;
   }
 
-  createResultEmbed(results, jackpot, bets) {
+  createResultEmbed(results, triple, bets) {
     const tripleWin = isTriple(results);
     const tripleName = tripleWin ? results[0].name : null;
 
@@ -149,8 +146,8 @@ class GameSession extends EventEmitter {
     if (tripleWin) {
       const animal = ANIMALS.find((a) => a.name === tripleName);
       embed.addFields({
-        name: '💎 NỔ HŨ!',
-        value: `${animal.emoji} ${animal.label} ${animal.emoji} ${animal.label} ${animal.emoji} ${animal.label}\nThưởng đặc biệt!`,
+        name: '💎 BỘ BA ĐẶC BIỆT!',
+        value: `${animal.emoji} ${animal.label} ${animal.emoji} ${animal.label} ${animal.emoji} ${animal.label}\nThưởng đặc biệt ×1.4!`,
         inline: false,
       });
     }
@@ -303,8 +300,6 @@ class GameSession extends EventEmitter {
       results[2].name,
       totalBets
     );
-
-    await addToJackpot(this.guildId, totalBets);
 
     await processRewards(this.guildId, this.sessionId, results, totalBets);
 

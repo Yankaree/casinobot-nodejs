@@ -4,7 +4,7 @@ const { broadcastMessage } = require('./relay');
 
 const KNOWN_BOT_COMMANDS = new Set([
   'bet', 'taixiu', 'baucua', 'help', 'ping', 'work',
-  'balance', 'admin', 'shutdown', 'jackpot', 'globaltaixiu',
+  'balance', 'admin', 'shutdown', 'globaltaixiu',
 ]);
 
 function isCommand(content) {

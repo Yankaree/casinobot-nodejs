@@ -53,7 +53,7 @@ startup (tables are dropped and recreated on each start).
 |---------------------|---------|------------------------------|
 | `guild_id`          | TEXT    | PK                           |
 | `taixiu_channel_id` | TEXT    | Channel the game runs in     |
-| `jackpot_balance`   | INTEGER | Pool, default `0`            |
+| `baucua_channel_id` | TEXT    | Channel Bầu Cua runs in      |
 
 ## Data access (`src/database/models.js`)
 
@@ -66,14 +66,13 @@ All models call `getDb().sql(...)` directly; no ORM is used. Key operations:
   totals per result; `getRecent()` lists finished rounds newest-first.
 - **Bets**: rows created during the round, updated after settlement with
   `won` + `payout`. `getSessionBets()` joins `users` to expose `discord_id`.
-- **Config**: per-guild row lazily created by `get()`; jackpot helpers
-  increment/decrement `jackpot_balance`.
+- **Config**: per-guild row lazily created by `get()`.
 
 ## Money flow
 
 ```
-bet:    user.coin       - amount
-lose:   jackpot_balance + amount            (full losing stake)
-win:    jackpot_balance - payout            (payout = amount × 1.2, or × 1.4 on jackpot)
-        user.coin       + payout            (capped at jackpot_balance)
+bet:    user.coin - amount
+lose:   user.coin - amount            (full losing stake, already deducted at bet time)
+win:    user.coin + payout            (Tài Xỉu: amount × 2.5 · Bầu Cua: amount × 1.2 per match,
+                                       × 1.4 on triple — paid directly, no jackpot pool)
 ```
