@@ -44,7 +44,29 @@ async function registerCommands() {
   }
   try {
     const rest = new REST({ version: '10' }).setToken(config.token);
-    console.log(`[Deploy] Registering ${commandData.length} commands...`);
+
+    // Tránh PUT toàn bộ lệnh mỗi lần boot: Discord giới hạn số lần cập nhật
+    // global command (429 nếu vượt) — restart nhiều lần có thể khiến việc
+    // đăng ký thất bại và danh sách lệnh cũ (thiếu /transfer, /vay...) bị giữ nguyên.
+    // Chỉ PUT khi danh sách thực sự khác biệt.
+    let current = [];
+    try {
+      current = await rest.get(Routes.applicationCommands(config.clientId));
+    } catch (err) {
+      console.warn('[Deploy] Không lấy được danh sách lệnh trên Discord, thử PUT trực tiếp:', err.message);
+    }
+
+    const currentNames = current.map((c) => c.name);
+    const localNames = commandData.map((c) => c.name);
+    const missing = commandData.filter((c) => !currentNames.includes(c.name)).length;
+    const removed = current.filter((c) => !localNames.includes(c.name)).length;
+
+    if (current.length > 0 && missing === 0 && removed === 0) {
+      console.log(`[Deploy] ${current.length} lệnh đã đồng bộ với Discord, không cần đăng ký lại.`);
+      return;
+    }
+
+    console.log(`[Deploy] Đăng ký ${commandData.length} lệnh (thêm ${missing}, xóa ${removed})...`);
     const data = await rest.put(
       Routes.applicationCommands(config.clientId),
       { body: commandData }
