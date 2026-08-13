@@ -53,11 +53,11 @@ module.exports = {
     minBattleCoin: 1000, // Battle Coin < mức này → ACTIVE → SPECTATOR
     setCoinMax: 1000000000, // Giới hạn trên khi tự chỉnh Battle Coin (/txdeath setcoin)
     roundDuration: 50, // Giây mỗi round (dùng chung với timer Tài Xỉu thường)
-    eventChance: 0.4, // 40% round có event
-    taxPercent: 0.05, // Event thuế: mỗi người mất 5% Battle Coin
-    helpPercent: 0.5, // Event trợ giúp: kẻ yếu nhất +50% (tối thiểu 5,000)
-    luckyPercent: 0.2, // Event may mắn: ngẫu nhiên +20% (tối thiểu 2,000)
-    hitPercent: 0.3, // Event tổn thất: ngẫu nhiên -30%
+    eventChance: 0.15, // 15% round có event (hiếm hơn — giảm từ 40%)
+    taxPercent: 0.01, // Event thuế: mỗi người mất 1% Battle Coin (nerf mạnh từ 5%)
+    helpPercent: 1.0, // Event trợ giúp: kẻ yếu nhất +100% (buff từ +50%, tối thiểu 5,000)
+    luckyPercent: 0.5, // Event may mắn: ngẫu nhiên +50% (buff từ +20%, tối thiểu 2,000)
+    hitPercent: 0.05, // Event tổn thất: ngẫu nhiên -5% (nerf mạnh từ -30%)
     rollDelayMs: 2000, // Delay 'Đang quay...' trước khi lật kết quả
     noBetDelayMs: 3000, // Delay khi round không ai cược
     nextRoundDelayMs: 5000, // Delay giữa 2 round

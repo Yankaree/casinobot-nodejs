@@ -1,9 +1,10 @@
 // ─────────────────────────────────────────────
 // EVENT SYSTEM — Tài Xỉu Deathmatch
-// Chạy trước khi mở cược mỗi round: 60% không có event,
-// 40% có event. Event chỉ tác động lên Battle Coin trong trận
-// (RAM), mục tiêu: cân bằng người dẫn đầu, giúp kẻ yếu quay lại,
-// tạo biến động.
+// Chạy trước khi mở cược mỗi round: 85% không có event,
+// 15% có event (hiếm hơn, để trận đấu chủ yếu theo kỹ năng).
+// Event chỉ tác động lên Battle Coin trong trận (RAM), mục tiêu:
+// cân bằng người dẫn đầu, giúp kẻ yếu quay lại, tạo biến động.
+// Hiệu ứng bất lợi được nerf mạnh, hiệu ứng có lợi được buff.
 // ─────────────────────────────────────────────
 
 const config = require('../../../config');
@@ -28,7 +29,7 @@ function demoteSpectators(session) {
   return demoted;
 }
 
-// 🎁 Trợ giúp kẻ yếu — người ít Battle Coin nhất +50% (tối thiểu 5,000)
+// 🎁 Trợ giúp kẻ yếu — người ít Battle Coin nhất +100% (tối thiểu 5,000)
 function applyHelpWeakest(session) {
   const actives = activePlayers(session);
   if (actives.length === 0) return [];
@@ -38,7 +39,7 @@ function applyHelpWeakest(session) {
   return [{ user: weakest, bonus }];
 }
 
-// 💰 Thuế chiến trường — mọi người đang ACTIVE mất 5% Battle Coin
+// 💰 Thuế chiến trường — mọi người đang ACTIVE mất 1% Battle Coin
 function applyTax(session) {
   const actives = activePlayers(session);
   const taxed = [];
@@ -53,7 +54,7 @@ function applyTax(session) {
   return taxed;
 }
 
-// 🍀 Vận may — một người đang ACTIVE ngẫu nhiên +20% (tối thiểu 2,000)
+// 🍀 Vận may — một người đang ACTIVE ngẫu nhiên +50% (tối thiểu 2,000)
 function applyLucky(session) {
   const actives = activePlayers(session);
   if (actives.length === 0) return [];
@@ -63,7 +64,7 @@ function applyLucky(session) {
   return [{ user: p, bonus }];
 }
 
-// 💥 Bão chiến trường — một người đang ACTIVE ngẫu nhiên -30%
+// 💥 Bão chiến trường — một người đang ACTIVE ngẫu nhiên -5%
 function applyChaos(session) {
   const actives = activePlayers(session);
   if (actives.length === 0) return [];
@@ -86,28 +87,28 @@ const EVENT_POOL = [
     id: 'tax',
     name: 'Thuế chiến trường',
     emoji: '💰',
-    desc: 'Mọi chiến binh đang ACTIVE phải nộp 5% Battle Coin!',
+    desc: 'Mọi chiến binh đang ACTIVE phải nộp 1% Battle Coin!',
     apply: applyTax,
   },
   {
     id: 'lucky',
     name: 'Vận may',
     emoji: '🍀',
-    desc: 'Một chiến binh may mắn được tăng 20% Battle Coin!',
+    desc: 'Một chiến binh may mắn được tăng 50% Battle Coin!',
     apply: applyLucky,
   },
   {
     id: 'chaos',
     name: 'Bão chiến trường',
     emoji: '💥',
-    desc: 'Một chiến binh ngẫu nhiên mất 30% Battle Coin!',
+    desc: 'Một chiến binh ngẫu nhiên mất 5% Battle Coin!',
     apply: applyChaos,
   },
 ];
 
 /**
  * Quyết định round này có event hay không.
- * @returns {object|null} event def hoặc null (60% null, 40% có event)
+ * @returns {object|null} event def hoặc null (85% null, 15% có event)
  */
 function rollEvent() {
   if (Math.random() >= config.deathmatch.eventChance) return null;

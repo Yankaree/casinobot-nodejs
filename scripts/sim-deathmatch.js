@@ -109,54 +109,54 @@ async function testSpectator() {
 
 // ── 3. Event system ──
 function testEvents() {
-  console.log('\n3. Event system (40% có event)');
-  // rollEvent: 60% null
+  console.log('\n3. Event system (15% có event)');
+  // rollEvent: 85% null
   const hits = [];
   for (let i = 0; i < 20000; i++) {
     hits.push(rollEvent() ? 1 : 0);
   }
   const rate = hits.reduce((a, b) => a + b, 0) / hits.length;
-  assert.ok(rate > 0.35 && rate < 0.45, `tỉ lệ event phải ~0.4, thực tế ${rate.toFixed(3)}`);
-  ok(`tỉ lệ event ≈ ${(rate * 100).toFixed(1)}% (0.35-0.45)`);
+  assert.ok(rate > 0.12 && rate < 0.18, `tỉ lệ event phải ~0.15, thực tế ${rate.toFixed(3)}`);
+  ok(`tỉ lệ event ≈ ${(rate * 100).toFixed(1)}% (0.12-0.18)`);
 
-  // help: kẻ yếu nhất +50% (min 5,000)
+  // help: kẻ yếu nhất +100% (min 5,000)
   const h = makeSession();
   h.players.get('p2').battleCoin = 2000;
   const evt = EVENT_POOL.find((e) => e.id === 'help');
   applyEvent(h, evt);
   assert.strictEqual(h.players.get('p2').battleCoin, 2000 + 5000, 'help: +5000 (tối thiểu)');
   assert.strictEqual(h.players.get('p1').battleCoin, 100000, 'người khác không đổi');
-  ok('event 🎁 Trợ giúp kẻ yếu: +50% (min 5,000)');
+  ok('event 🎁 Trợ giúp kẻ yếu: +100% (min 5,000)');
 
-  // tax: mọi ACTIVE -5%
+  // tax: mọi ACTIVE -1%
   const t = makeSession();
   const evtTax = EVENT_POOL.find((e) => e.id === 'tax');
   applyEvent(t, evtTax);
   for (const p of t.players.values()) {
-    assert.strictEqual(p.battleCoin, 100000 - Math.floor(100000 * 0.05));
+    assert.strictEqual(p.battleCoin, 100000 - Math.floor(100000 * 0.01));
   }
-  ok('event 💰 Thuế chiến trường: mọi ACTIVE -5%');
+  ok('event 💰 Thuế chiến trường: mọi ACTIVE -1%');
 
-  // lucky: một người +20% (min 2,000)
+  // lucky: một người +50% (min 2,000)
   const l = makeSession();
   const evtLucky = EVENT_POOL.find((e) => e.id === 'lucky');
   applyEvent(l, evtLucky);
   const lucky = [...l.players.values()].find((p) => p.battleCoin !== 100000);
   assert.ok(lucky, 'phải có đúng 1 người được tăng');
-  assert.strictEqual(lucky.battleCoin, 100000 + 20000);
-  ok('event 🍀 Vận may: 1 người ngẫu nhiên +20%');
+  assert.strictEqual(lucky.battleCoin, 100000 + 50000);
+  ok('event 🍀 Vận may: 1 người ngẫu nhiên +50%');
 
-  // chaos: một người -30%
+  // chaos: một người -5%
   const c = makeSession();
   const evtChaos = EVENT_POOL.find((e) => e.id === 'chaos');
   applyEvent(c, evtChaos);
   const hit = [...c.players.values()].find((p) => p.battleCoin !== 100000);
   assert.ok(hit, 'phải có đúng 1 người bị giảm');
-  assert.strictEqual(hit.battleCoin, 100000 - Math.floor(100000 * 0.3));
-  ok('event 💥 Bão chiến trường: 1 người ngẫu nhiên -30%');
+  assert.strictEqual(hit.battleCoin, 100000 - Math.floor(100000 * 0.05));
+  ok('event 💥 Bão chiến trường: 1 người ngẫu nhiên -5%');
 
-  // tax đánh sập người yếu → SPECTATOR (1050 - 5% = 998 < 1000)
-  const s = makeSession(1050);
+  // tax đánh sập người yếu → SPECTATOR (1000 - 1% = 990 < 1000)
+  const s = makeSession(1000);
   const evtTax2 = EVENT_POOL.find((e) => e.id === 'tax');
   const applied = applyEvent(s, evtTax2);
   assert.strictEqual(s.players.get('p1').status, 'SPECTATOR');
