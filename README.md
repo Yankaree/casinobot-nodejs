@@ -7,7 +7,7 @@ Mini game Tài Xỉu và Bầu Cua với coin ảo trên Discord.
 - 🎲 Game Tài Xỉu tự động chạy
 - 🦀 Game Bầu Cua tự động chạy (6 biểu tượng)
 - 💰 Hệ thống coin ảo chung
-- 💎 Jackpot riêng cho từng game
+- ⚡ Trả thưởng trực tiếp, không có hũ (jackpot)
 - 📊 Thống kê lịch sử
 - 🔒 Admin commands
 
@@ -54,10 +54,8 @@ npm start
 | `/work` | Đi làm kiếm coin (cooldown 90 giây) |
 | `/bet tai <amount>` | Đặt cược Tài |
 | `/bet xiu <amount>` | Đặt cược Xỉu |
-| `/jackpot` | Xem jackpot Tài Xỉu |
 | `/baucua bet <biểu tượng> <amount>` | Đặt cược Bầu Cua |
 | `/baucua stats` | Xem thống kê Bầu Cua |
-| `/baucua jackpot` | Xem hũ Bầu Cua |
 
 ### Admin Commands
 
@@ -70,29 +68,23 @@ npm start
 | `/baucua setchannel #channel` | Đặt kênh Bầu Cua |
 | `/baucua start` | Bắt đầu game Bầu Cua |
 | `/baucua stop` | Dừng game Bầu Cua |
-| `/baucua resetjackpot` | Reset hũ Bầu Cua |
 | `/admin givecoin @user <amount>` | Tặng coin |
-| `/admin resetjackpot` | Reset jackpot Tài Xỉu |
 
 ## Luật chơi
 
 ### Tài Xỉu
 
 - Mỗi phiên 50 giây
-- 3 xúc xắc: 4-10 = Xỉu, 11-17 = Tài
-- Thắng: nhận 120% tiền cược
-- Nổ hũ (1-1-1 hoặc 6-6-6): nhận 140% tiền cược
-- 5% tổng cược mỗi phiên được cộng vào jackpot
+- Kết quả random 50/50 Tài/Xỉu
+- Thắng: nhận **250%** tiền cược (trả trực tiếp, không có hũ)
 
 ### Bầu Cua
 
 - Mỗi phiên 50 giây
 - 3 xúc xắc, mỗi xúc xắc 1 trong 6 biểu tượng: 🥣 Bầu, 🦀 Cua, 🦐 Tôm, 🐟 Cá, 🐓 Gà, 🦌 Nai
 - Cho phép đặt nhiều cửa (tối đa 6) trong 1 phiên
-- Cược đúng 1 lần = 1.2x, 2 lần = 2.4x, 3 lần = 3.6x
-- 3 xúc xắc giống nhau → Nổ hũ, chia jackpot theo tỷ lệ cược
-- Jackpot riêng, không dùng chung với Tài Xỉu
-- 5% tổng cược mỗi phiên được cộng vào jackpot
+- Cược đúng 1 lần = 1.2x, 2 lần = 2.4x, 3 lần = 3.6x (trả trực tiếp, không có hũ)
+- 3 xúc xắc giống nhau → trúng cửa đó x1.4 thay vì x1.2
 
 ## Cấu trúc thư mục
 
@@ -111,7 +103,6 @@ src/
 │       ├── engine.js     # Random symbol rolling
 │       ├── session.js    # Round lifecycle
 │       ├── reward.js     # Payout settlement
-│       ├── jackpot.js    # Jackpot management
 │       └── stats.js      # Stats embeds
 ├── database/             # SQLite Cloud database
 └── utils/                # Utilities

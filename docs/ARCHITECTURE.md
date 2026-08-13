@@ -49,8 +49,7 @@ Tài Xỉu (Sic Bo) mini-game Discord bot written in Node.js using `discord.js` 
 3. **End** — if nobody bet, a "no bets" embed is posted and the next session
    starts after 3 s. Otherwise:
    - posts a "rolling dice" embed and waits 2 s;
-   - rolls 3 dice via `rollDice()` (cryptographically secure);
-   - determines result (`calculateResult`) and jackpot (`isJackpot`);
+   - rolls the result via `rollResult()` (cryptographically secure 50/50);
    - persists the session outcome (`SessionModel.finish`);
    - settles all bets (`processRewards`);
    - posts the result embed with per-player win/loss lines;
@@ -71,11 +70,10 @@ one bet per user per round.
 
 ### Settlement flow (`src/games/taixiu/reward.js`)
 
-- **Losers** (bet choice ≠ result): their stake is added to the jackpot pool,
+- **Losers** (bet choice ≠ result): their stake was already deducted at bet time,
   `lose_count` incremented, bet marked lost.
-- **Winners**: payout = `amount × 1.2` normally, or `amount × 1.4` on a jackpot
-  (triple 1 or triple 6). Payout is capped by the current jackpot balance and
-  taken from the jackpot pool. `win_count` incremented and the bet marked won.
+- **Winners**: payout = `amount × 2.5`, paid directly from the house (no jackpot
+  pool). `win_count` incremented and the bet marked won.
 
 ## Design notes
 
@@ -85,4 +83,4 @@ one bet per user per round.
 - **SQLite Cloud** is the only persistence layer; all models in
   `src/database/models.js` are thin wrappers over raw `db.sql()` calls.
 - **Deterministic rules** live in `src/config.js` (`sessionDuration`,
-  `betMultiplier`, `jackpotMultiplier`, `jackpotPercent`, `startingCoins`).
+  `betMultiplier`, `startingCoins`).

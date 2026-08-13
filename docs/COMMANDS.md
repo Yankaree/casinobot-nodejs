@@ -29,11 +29,6 @@ bet coins are automatically refunded.
 
 Source: `src/commands/bet.js`
 
-### `/jackpot`
-Shows the current jackpot balance.
-
-Source: `src/commands/jackpot.js`
-
 ## Admin commands
 
 Permissions: requires the `Administrator` permission **or** membership in
@@ -56,8 +51,5 @@ Source: `src/commands/taixiu.js`
 
 ### `/admin givecoin <user> <amount>`
 Adds coins to a user and reports the new balance.
-
-### `/admin resetjackpot`
-Sets the guild jackpot balance back to 0.
 
 Source: `src/commands/admin.js`

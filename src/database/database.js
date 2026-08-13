@@ -133,7 +133,7 @@ const SCHEMA_SQL = [
     discord_id TEXT NOT NULL,
     guild_id TEXT NOT NULL,
     amount INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('win', 'lose', 'reward', 'bonus', 'jackpot')),
+    type TEXT NOT NULL CHECK(type IN ('win', 'lose', 'reward', 'bonus')),
     game TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`,
