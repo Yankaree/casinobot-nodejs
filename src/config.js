@@ -41,6 +41,28 @@ module.exports = {
     highRate: 2.0, // Lãi 200% (từ 100 triệu)
   },
 
+  // ⚔️ Tài Xỉu Deathmatch — nhánh độc lập của Tài Xỉu thường
+  // Dùng Battle Coin (RAM, không phải coin chính), lobby + timer trận riêng.
+  deathmatch: {
+    defaultInitialCoin: 100000, // Vốn Battle Coin mỗi người khi trận bắt đầu
+    defaultMinutes: 10, // Thời gian trận mặc định (phút)
+    defaultMaxPlayers: 4, // Số người tối đa mặc định
+    minPlayersToStart: 2, // Cần tối thiểu bao nhiêu người để start
+    maxPlayers: 8, // Giới hạn người chơi tối đa
+    minBet: 1000, // Cược tối thiểu mỗi round
+    minBattleCoin: 1000, // Battle Coin < mức này → ACTIVE → SPECTATOR
+    roundDuration: 50, // Giây mỗi round (dùng chung với timer Tài Xỉu thường)
+    eventChance: 0.4, // 40% round có event
+    taxPercent: 0.05, // Event thuế: mỗi người mất 5% Battle Coin
+    helpPercent: 0.5, // Event trợ giúp: kẻ yếu nhất +50% (tối thiểu 5,000)
+    luckyPercent: 0.2, // Event may mắn: ngẫu nhiên +20% (tối thiểu 2,000)
+    hitPercent: 0.3, // Event tổn thất: ngẫu nhiên -30%
+    rollDelayMs: 2000, // Delay 'Đang quay...' trước khi lật kết quả
+    noBetDelayMs: 3000, // Delay khi round không ai cược
+    nextRoundDelayMs: 5000, // Delay giữa 2 round
+    allBetDelayMs: 1500, // Delay trước khi lật kết quả khi tất cả ACTIVE đã cược
+  },
+
   adminUsers: ['924487653456511048'],
 
   colors: {

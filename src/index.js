@@ -134,6 +134,15 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
 
+      // Tài Xỉu Deathmatch — nút TÀI/XỈU + nút xác nhận cược
+      if (customId.startsWith('txdeath_bet_') || customId.startsWith('confirm:dm:')) {
+        const dmCmd = client.commands.get('txdeath');
+        if (dmCmd && dmCmd.handleButton) {
+          await dmCmd.handleButton(interaction);
+        }
+        return;
+      }
+
       // Tai Xiu button
       if (customId.startsWith('taixiu_bet_')) {
         const taixiuCmd = client.commands.get('taixiu');
@@ -207,6 +216,15 @@ client.on('interactionCreate', async (interaction) => {
         const taixiuCmd = client.commands.get('taixiu');
         if (taixiuCmd && taixiuCmd.handleModal) {
           await taixiuCmd.handleModal(interaction);
+        }
+        return;
+      }
+
+      // Tài Xỉu Deathmatch — modal nhập Battle Coin
+      if (customId.startsWith('txdeath_modal_')) {
+        const dmCmd = client.commands.get('txdeath');
+        if (dmCmd && dmCmd.handleModal) {
+          await dmCmd.handleModal(interaction);
         }
         return;
       }

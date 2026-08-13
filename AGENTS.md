@@ -27,6 +27,7 @@ Multi-guild Discord bot. Game state lives in-memory (`activeSessions` Map in bot
 - **Commands**: `src/commands/*.js` — each exports `{ data: SlashCommandBuilder, execute(interaction) }`
 - **Game engines**:
   - `src/games/taixiu/` — Tài Xỉu: `session.js`, `engine.js`, `reward.js`, `stats.js`
+  - `src/games/taixiu/deathmatch/` — **Tài Xỉu Deathmatch**: nhánh độc lập mở rộng `GameSession` Tài Xỉu (`session.js` extends `../session`), RAM-only (Battle Coin, lobby, event, spectator, final round, ranking). `lobby.js`, `events.js`; lệnh `/txdeath`
   - `src/games/baucua/` — Bầu Cua: `session.js`, `engine.js`, `reward.js`, `jackpot.js`, `stats.js`
   - `src/games/card_games/` — Card game framework: Tiến Lên Miền Nam / Tiến Lên / Sâm Lốc.
     - `engine/` — card, deck, hand, player, validator, comparator, turnManager (dùng chung, không hard-code luật)
@@ -89,3 +90,4 @@ BAU CUA
 - **Deploy-commands.js uses global commands** (`Routes.applicationCommands`), not guild-scoped. Commands appear in all guilds the bot is in.
 - **Card games**: one lobby per channel (`/card create <game> [bet]`), host starts; bài mỗi người chỉ gửi qua DM (không bao giờ đăng lên channel). Interaction customId prefix `card:` được route trong `src/index.js`. Mọi nước đánh validate ở server (validator.js) — client chỉ gửi id lá bài. Hết giờ (30s) tự bỏ lượt / tự đánh lá nhỏ nhất nếu đang dẫn đầu. Restart bot → mất phòng đang mở.
 - **HTTP server on port 3000** (`src/server.js`) — keeps the bot alive on hosting platforms. `GET /ping` → `pong`.
+- **Tài Xỉu Deathmatch** (`/txdeath`): lobby + trận đều RAM (`lobbies`/`matches`/`lastResults` Map trong `src/commands/txdeath.js`), không lưu DB. Battle Coin chỉ tồn tại trong trận. `DeathmatchSession` extends `GameSession` Tài Xỉu và override các method DB-coupled (start/addBet/end); dùng chung `rollResult` (key `dm:<guildId>`), `betConfirm`, formatter. Round end khi tất cả ACTIVE đã cược hoặc hết timer round; hết timer trận → FINAL_ROUND; ranking khi trận kết thúc. Button/modal customId prefix `txdeath_` và `confirm:dm:` route trong `src/index.js`.
