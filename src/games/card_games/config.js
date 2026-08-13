@@ -48,6 +48,11 @@ const CARD_GAME_CONFIG = {
         quadBeatsPairTwo: false,
       },
 
+      // Trả thưởng theo hạng (nhất/nhì/ba/bét):
+      //   hạng 1: +1x cược · hạng 2: +0.5x · hạng 3: -0.5x · chót: -1x (mất hết)
+      //   Người về chót luôn mất hết dù ít người chơi. Ăn trắng vẫn ăn cả pot.
+      payout: { rankMultipliers: [1, 0.5, -0.5, -1] },
+
       whiteWin: {
         fourTwos: true, // tứ quý 2 → ăn trắng
         dragonStraight: true, // sảnh rồng 3→A (12 lá)
@@ -97,6 +102,9 @@ const CARD_GAME_CONFIG = {
         fourPairsBeatsThreePairs: false,
         quadBeatsPairTwo: false,
       },
+
+      // Trả thưởng theo hạng giống Tiến Lên Miền Nam
+      payout: { rankMultipliers: [1, 0.5, -0.5, -1] },
 
       whiteWin: {
         fourTwos: true,

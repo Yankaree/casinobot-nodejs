@@ -8,6 +8,7 @@ const GAME_LABELS = {
   globaltaixiu: 'Tài Xỉu Global',
   work: 'Đi làm',
   admin: 'Quản trị',
+  transfer: 'Chuyển coin',
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -48,7 +49,8 @@ function formatRankLines(top) {
   return top
     .map((entry, index) => {
       const medal = MEDALS[index] || `${index + 1}.`;
-      return `${medal} <@${entry.discord_id}> — 💰 **${entry.net.toLocaleString('vi-VN')}** 🪙`;
+      const coins = entry.coin ?? entry.net ?? 0;
+      return `${medal} <@${entry.discord_id}> — 💰 **${coins.toLocaleString('vi-VN')}** 🪙`;
     })
     .join('\n');
 }

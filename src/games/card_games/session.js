@@ -19,7 +19,7 @@ const { CARD_GAME_CONFIG } = require('./config');
 const betting = require('./betting/manager');
 const payout = require('./rewards/payout');
 const { tableEmbed, resultEmbed } = require('./ui/embed');
-const { baoSamButtons, catchSamButtons, handSelect, confirmRows, passRow, disabledRows } = require('./ui/components');
+const { baoSamButtons, catchSamButtons, handSelect, confirmRows, passRow } = require('./ui/components');
 const { sendDM, handEmbed } = require('./ui/dm');
 const { formatCoins } = require('../../utils/formatter');
 
@@ -260,7 +260,13 @@ class CardSession {
     for (const p of this.players) {
       if (p.controlMessage && p.discordId !== currentPlayer.discordId) {
         try {
-          await p.controlMessage.edit({ components: disabledRows(p.controlMessage.components) });
+          // Ghi đè nội dung cũ (tránh hiển thị "bàn đang có: ..." của lượt trước
+          // khiến người chơi tưởng bàn chưa cập nhật) và gỡ toàn bộ nút bấm.
+          await p.controlMessage.edit({
+            content: '⏳ **Đã đến lượt người khác** — nút điều khiển của bạn đã bị khóa.',
+            embeds: p.controlMessage.embeds || [],
+            components: [],
+          });
         } catch {
           // DM đã bị xóa — bỏ qua
         }
@@ -506,6 +512,7 @@ class CardSession {
       pot: this.pot,
       bet: this.bet,
       rules: this.rules,
+      reason,
     });
 
     const embed = resultEmbed(this, {

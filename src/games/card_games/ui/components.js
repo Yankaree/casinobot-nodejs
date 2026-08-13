@@ -8,6 +8,7 @@ const {
   ButtonStyle,
   ActionRowBuilder,
   StringSelectMenuBuilder,
+  ComponentType,
 } = require('discord.js');
 
 // ── Lobby ──
@@ -33,11 +34,16 @@ function lobbyButtons(lobbyId) {
   return [new ActionRowBuilder().addComponents(join, leave, start)];
 }
 
+// Khóa toàn bộ component (hỗ trợ cả button lẫn select menu)
 function disabledRows(rows) {
   return rows.map((row) => {
     const newRow = new ActionRowBuilder();
     for (const comp of row.components) {
-      newRow.addComponents(ButtonBuilder.from(comp).setDisabled(true));
+      const cloned =
+        comp.type === ComponentType.Button
+          ? ButtonBuilder.from(comp)
+          : StringSelectMenuBuilder.from(comp);
+      newRow.addComponents(cloned.setDisabled(true));
     }
     return newRow;
   });

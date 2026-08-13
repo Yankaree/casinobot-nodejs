@@ -16,7 +16,9 @@ const { calculateThoi } = require('../src/games/card_games/rules/samloc');
 const { CARD_GAME_CONFIG } = require('../src/games/card_games/config');
 const betting = require('../src/games/card_games/betting/manager');
 const payout = require('../src/games/card_games/rewards/payout');
+const { computeTieredDeltas } = require('../src/games/card_games/rewards/payout');
 const { CardSession } = require('../src/games/card_games/session');
+const { formatCoins } = require('../src/utils/formatter');
 
 let passed = 0;
 function ok(name) {
@@ -88,6 +90,24 @@ betting.refundBets = async (guildId, players, bet) => {
 payout.settleGame = async (args) => {
   settleLog.push({ gameId: args.gameId, winnerId: args.winnerId, pot: args.pot, ranking: args.ranking });
   const payouts = [];
+
+  // Tiến Lên / Tiến Lên Miền Nam: trả theo hạng (dùng đúng logic thật)
+  const isTiered = args.rules && args.rules.payout && Array.isArray(args.rules.payout.rankMultipliers);
+  if (isTiered && args.ranking.length === args.players.length) {
+    const deltas = computeTieredDeltas(args.ranking, args.players.length, args.bet, args.rules.payout.rankMultipliers);
+    for (const d of deltas) {
+      balances.set(d.discordId, (balances.get(d.discordId) ?? 0) + d.payout);
+      payouts.push({
+        discordId: d.discordId,
+        delta: d.delta,
+        label: `${d.delta >= 0 ? '+' : '-'}${formatCoins(Math.abs(d.delta))} 🪙`,
+      });
+    }
+    const winner = deltas.find((d) => d.discordId === args.winnerId);
+    return { winnerGain: winner ? winner.delta : 0, payouts, thoiByPlayer: new Map() };
+  }
+
+  // Sâm Lốc / kết thúc sớm: nhất ăn cả
   for (const p of args.players) {
     if (p.discordId === args.winnerId) {
       payouts.push({ discordId: p.discordId, delta: args.pot, label: `+${args.pot} 🪙` });
@@ -232,6 +252,71 @@ console.log('\n🛡️  Anti-cheat checks');
   ok('validatePlay chặn: lá không có / trùng / không chặt được');
 }
 
+// ── 2b. Payout theo hạng (TLMN / Tiến Lên) ──
+console.log('\n💰 Payout theo hạng');
+{
+  const M = [1, 0.5, -0.5, -1];
+
+  // 4 người: Nhất +1x · Nhì +0.5x · Ba -0.5x · Bét -1x
+  const r4 = computeTieredDeltas(
+    [
+      { discordId: 'a', rank: 1 },
+      { discordId: 'b', rank: 2 },
+      { discordId: 'c', rank: 3 },
+      { discordId: 'd', rank: 4 },
+    ],
+    4,
+    10_000,
+    M
+  );
+  assert.deepStrictEqual(
+    r4.map((d) => d.delta),
+    [10_000, 5_000, -5_000, -10_000],
+    '4 người: +1x / +0.5x / -0.5x / -1x'
+  );
+  assert.deepStrictEqual(
+    r4.map((d) => d.payout),
+    [20_000, 15_000, 5_000, 0],
+    'payout cộng lại = bet + delta'
+  );
+  assert.strictEqual(r4.reduce((s, d) => s + d.delta, 0), 0, 'tổng lãi/lỗ = 0');
+
+  // 3 người: người về chót vẫn mất hết
+  const r3 = computeTieredDeltas(
+    [
+      { discordId: 'a', rank: 1 },
+      { discordId: 'b', rank: 2 },
+      { discordId: 'c', rank: 3 },
+    ],
+    3,
+    10_000,
+    M
+  );
+  assert.deepStrictEqual(
+    r3.map((d) => d.delta),
+    [10_000, 5_000, -10_000],
+    '3 người: về chót -1x'
+  );
+
+  // 2 người: nhất ăn, nhì mất hết
+  const r2 = computeTieredDeltas(
+    [
+      { discordId: 'a', rank: 1 },
+      { discordId: 'b', rank: 2 },
+    ],
+    2,
+    10_000,
+    M
+  );
+  assert.deepStrictEqual(
+    r2.map((d) => d.delta),
+    [10_000, -10_000],
+    '2 người: nhất +1x, nhì -1x'
+  );
+
+  ok('payout theo hạng: Nhất +1x · Nhì +0.5x · Ba -0.5x · Bét mất hết (2/3/4 người)');
+}
+
 // ── 3. Chơi full game headless ──
 async function playFullGame(gameType, playerCount, opts = {}) {
   const { client } = buildClient(playerCount);
@@ -287,7 +372,38 @@ async function playFullGame(gameType, playerCount, opts = {}) {
 
 console.log('\n🎮 Full game simulations');
 (async () => {
-  // Tiến Lên Miền Nam — 4 người
+  // ── Hiển thị bàn sau khi chặt (fix lỗi "vẫn hiện đôi A") ──
+  {
+    console.log('\n🖥️  Hiển thị bàn sau khi chặt');
+    const { client } = buildClient(2);
+    const lobby = buildLobby('tienlenmiennam', 2);
+    const session = new CardSession(lobby);
+    session.client = client;
+    session.state = 'play';
+    session.phase = 'play';
+    session.players[0].hand = sortHand(resolveCards(['s3', 'h3', 'c3', 'd3', 's4', 'h4', 'c4', 'd4', 'sA', 'hA', 'c5', 'd5', 'h6']));
+    session.players[1].hand = sortHand(resolveCards(['c2', 'd2', 's6', 'h7', 'c8', 'd9', 's10', 'hJ', 'cQ', 'dK', 'sK', 'h3', 's4']));
+    session.turnManager.setCurrent(0);
+    session.channelMessage = lobby.message;
+
+    const r1 = await session.submitPlay('U1', ['sA', 'hA']);
+    assert.ok(r1.ok, 'U1 đánh đôi A');
+    assert.strictEqual(session.table.combo.label, 'Đôi A');
+
+    const r2 = await session.submitPlay('U2', ['c2', 'd2']);
+    assert.ok(r2.ok, 'U2 chặt đôi 2');
+    assert.strictEqual(session.table.combo.label, 'Đôi 2', 'bàn cập nhật combo mới sau khi chặt');
+
+    const embed = session.channelMessage.embeds[0] || {};
+    const fields = embed.fields || (embed.data && embed.data.fields) || [];
+    const tableField = fields.find((f) => f.name.includes('Bài đang trên bàn'));
+    assert.ok(tableField, 'embed có trường "Bài đang trên bàn"');
+    assert.ok(tableField.value.includes('Đôi 2'), 'trường bàn hiển thị Đôi 2');
+    assert.ok(!tableField.value.includes('Đôi A'), 'trường bàn không còn hiển thị Đôi A');
+    ok('bàn chơi + embed cập nhật đúng combo sau khi chặt');
+  }
+
+  // Tiến Lên Miền Nam — 4 người (trả thưởng theo hạng)
   {
     const s = await playFullGame('tienlenmiennam', 4);
     assert.strictEqual(s.ended, true, 'ván kết thúc');
@@ -296,8 +412,15 @@ console.log('\n🎮 Full game simulations');
     const lastSettle = settleLog[settleLog.length - 1];
     assert.strictEqual(lastSettle.pot, 40_000, 'pot 40k');
     assert.strictEqual(lastSettle.winnerId, s.ranking[0].discordId);
-    assert.strictEqual(balances.get(lastSettle.winnerId), 100_000 - 10_000 + 40_000, 'winner +pot, mất cược');
-    ok('Tiến Lên Miền Nam 4 người chơi tới cùng, thanh toán đúng');
+
+    const [w, n, ba, bet] = s.ranking.map((r) => r.discordId);
+    // Bắt đầu 100k → khóa cược 10k (còn 90k) → cộng lại theo hạng:
+    // Nhất +20k = 110k · Nhì +15k = 105k · Ba +5k = 95k · Bét +0 = 90k
+    assert.strictEqual(balances.get(w), 110_000, 'Nhất: +1x cược (nhận nhiều nhất)');
+    assert.strictEqual(balances.get(n), 105_000, 'Nhì: +0.5x cược');
+    assert.strictEqual(balances.get(ba), 95_000, 'Ba: -0.5x cược');
+    assert.strictEqual(balances.get(bet), 90_000, 'Bét: mất hết cược');
+    ok('Tiến Lên Miền Nam 4 người: trả thưởng theo hạng đúng');
   }
 
   // Tiến Lên (miền Bắc) — 3 người, luật cùng chất

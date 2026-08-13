@@ -46,11 +46,26 @@ module.exports = {
           inline: false,
         },
         {
+          name: '🃏 GAME BÀI',
+          value: [
+            '`/card create <game> [bet]` - Tạo phòng (Tiến Lên Miền Nam, Tiến Lên, Sâm Lốc)',
+            '`/card join` - Tham gia phòng trong kênh',
+            '`/card leave` - Rời phòng',
+            '`/card start` - Bắt đầu ván (chủ phòng)',
+            '`/card info` - Xem thông tin phòng/ván',
+            'Bài chia riêng qua **DM**, đánh bằng select menu + nút bấm',
+            '**Trả thưởng (Tiến Lên):** Nhất +1x · Nhì +0.5x · Ba -0.5x · Bét mất hết',
+            '**Sâm Lốc:** báo Sâm / bắt Sâm, thối 2 & tứ quý',
+          ].join('\n'),
+          inline: false,
+        },
+        {
           name: '👤 NGƯỜI CHƠI',
           value: [
             '`/balance` - Xem số dư và profile',
             '`/balance @user` - Xem profile người khác',
             '`/work` - Đi làm kiếm coin (90s cooldown)',
+            '`/transfer @user <số coin>` - Chuyển coin cho người khác',
             '`/leaderboard` - Bảng xếp hạng coin trong server',
             '`/leaderboard @user` - Thống kê xếp hạng của người chơi',
             '`/globalleaderboard` - Bảng xếp hạng coin toàn bot',

@@ -1,5 +1,4 @@
 const { getDb, queryWithRetry } = require('./database');
-const config = require('../config');
 const leaderboardCache = require('../utils/leaderboardCache');
 
 // ═══════════════════════════════════════════
@@ -681,24 +680,23 @@ const TransactionModel = {
           guildId, discordId, amount, type, game
         );
       });
-      if (Math.abs(amount) >= config.leaderboard.largeTxThreshold) {
-        leaderboardCache.invalidateServer(guildId);
-        leaderboardCache.invalidateGlobal();
-      }
     } catch (err) {
       console.error(`[Transaction] Failed to record ${type} for ${discordId}:`, err.message);
     }
+    // Bảng xếp hạng xếp theo số dư hiện tại → mọi giao dịch đều thay đổi thứ hạng
+    leaderboardCache.invalidateServer(guildId);
+    leaderboardCache.invalidateGlobal();
   },
 
+  // Bảng xếp hạng xếp theo SỐ DƯ COIN hiện tại (không phải lãi/lỗ tích lũy)
   async getServerTop(guildId, limit = 10) {
     return queryWithRetry(async () => {
       const db = getDb();
       return db.sql(
-        `SELECT discord_id, SUM(amount) as net, COUNT(*) as tx_count
-         FROM coin_transactions
+        `SELECT discord_id, coin
+         FROM users
          WHERE guild_id = ?
-         GROUP BY discord_id
-         ORDER BY net DESC
+         ORDER BY coin DESC, discord_id ASC
          LIMIT ?`,
         guildId, limit
       );
@@ -709,10 +707,10 @@ const TransactionModel = {
     return queryWithRetry(async () => {
       const db = getDb();
       return db.sql(
-        `SELECT discord_id, SUM(amount) as net, COUNT(*) as tx_count
-         FROM coin_transactions
+        `SELECT discord_id, SUM(coin) as coin
+         FROM users
          GROUP BY discord_id
-         ORDER BY net DESC
+         ORDER BY coin DESC, discord_id ASC
          LIMIT ?`,
         limit
       );
@@ -723,13 +721,9 @@ const TransactionModel = {
     return queryWithRetry(async () => {
       const db = getDb();
       const rows = await db.sql(
-        `SELECT COUNT(*) + 1 as rank FROM (
-           SELECT discord_id FROM coin_transactions
-           WHERE guild_id = ?
-           GROUP BY discord_id
-           HAVING SUM(amount) > COALESCE(
-             (SELECT SUM(amount) FROM coin_transactions WHERE guild_id = ? AND discord_id = ?), 0)
-         )`,
+        `SELECT COUNT(*) + 1 as rank FROM users
+         WHERE guild_id = ? AND coin > COALESCE(
+           (SELECT coin FROM users WHERE guild_id = ? AND discord_id = ?), 0)`,
         guildId, guildId, discordId
       );
       return rows[0]?.rank || 1;
@@ -741,10 +735,10 @@ const TransactionModel = {
       const db = getDb();
       const rows = await db.sql(
         `SELECT COUNT(*) + 1 as rank FROM (
-           SELECT discord_id FROM coin_transactions
+           SELECT discord_id, SUM(coin) as total FROM users
            GROUP BY discord_id
-           HAVING SUM(amount) > COALESCE(
-             (SELECT SUM(amount) FROM coin_transactions WHERE discord_id = ?), 0)
+           HAVING SUM(coin) > COALESCE(
+             (SELECT SUM(coin) FROM users WHERE discord_id = ?), 0)
          )`,
         discordId
       );
