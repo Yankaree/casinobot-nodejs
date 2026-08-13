@@ -3,6 +3,7 @@ const { ConfigModel, UserModel } = require('../database/models');
 const GameSession = require('../games/taixiu/session');
 const config = require('../config');
 const { formatCoins } = require('../utils/formatter');
+const { showConfirmation } = require('../utils/betConfirm');
 
 const activeSessions = new Map();
 const startLocks = new Map();
@@ -200,19 +201,32 @@ module.exports = {
       });
     }
 
-    const result = await session.addBet(interaction.user.id, choice, amount);
-    if (!result.success) {
-      return interaction.reply({ content: `❌ ${result.message}`, ephemeral: true });
-    }
-
-    const choiceText = choice === 'tai' ? '🔴 TÀI' : '🔵 XỈU';
-    return interaction.reply({
-      content:
-        `✅ Đặt cược thành công\n\n` +
-        `Cửa: **${choiceText}**\n` +
-        `Tiền cược: **${formatCoins(amount)}** 🪙\n` +
-        `💰 Số dư còn lại: **${formatCoins(result.balance)}** 🪙`,
-      ephemeral: true,
+    // Hiện UI xác nhận trước khi đặt cược thật
+    return showConfirmation(interaction, {
+      prefix: 'tx',
+      emoji: '🎲',
+      choiceLabel: choice === 'tai' ? '🔴 TÀI' : '🔵 XỈU',
+      amount,
+      note: `💰 Số dư hiện tại: **${formatCoins(balance)}** 🪙`,
+      onConfirm: async (confirmInteraction) => {
+        const active = activeSessions.get(confirmInteraction.guildId);
+        if (!active || !active.isActive) {
+          return confirmInteraction.followUp({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+        }
+        const result = await active.addBet(confirmInteraction.user.id, choice, amount);
+        if (!result.success) {
+          return confirmInteraction.followUp({ content: `❌ ${result.message}`, ephemeral: true });
+        }
+        const choiceText = choice === 'tai' ? '🔴 TÀI' : '🔵 XỈU';
+        return confirmInteraction.followUp({
+          content:
+            `✅ Đặt cược thành công\n\n` +
+            `Cửa: **${choiceText}**\n` +
+            `Tiền cược: **${formatCoins(amount)}** 🪙\n` +
+            `💰 Số dư còn lại: **${formatCoins(result.balance)}** 🪙`,
+          ephemeral: true,
+        });
+      },
     });
   },
 

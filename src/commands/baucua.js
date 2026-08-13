@@ -15,6 +15,7 @@ const { getJackpotEmbed, resetJackpot } = require('../games/baucua/jackpot');
 const { getStatsEmbed } = require('../games/baucua/stats');
 const config = require('../config');
 const { formatCoins } = require('../utils/formatter');
+const { showConfirmation, handleConfirmationClick } = require('../utils/betConfirm');
 
 const activeSessions = new Map();
 const startLocks = new Map();
@@ -224,6 +225,10 @@ module.exports = {
   // Handle button interactions for selecting animal
   async handleButton(interaction) {
     const customId = interaction.customId;
+    // Nút xác nhận đặt cược Bầu Cua
+    if (customId.startsWith('confirm:bc:')) {
+      return handleConfirmationClick(interaction, 'bc');
+    }
     if (!customId.startsWith('baucua_select_')) return;
 
     const parts = customId.split('_');
@@ -318,19 +323,33 @@ module.exports = {
       });
     }
 
-    const result = await session.addBet(interaction.user.id, animal, amount);
-    if (!result.success) {
-      return interaction.reply({ content: `❌ ${result.message}`, ephemeral: true });
-    }
-
     const animalInfo = ANIMALS.find((a) => a.name === animal);
-    return interaction.reply({
-      content:
-        `✅ Đặt cược thành công\n\n` +
-        `Cửa: **${animalInfo.emoji} ${animalInfo.label}**\n` +
-        `Tiền cược: **${formatCoins(amount)}** 🪙\n` +
-        `💰 Số dư còn lại: **${formatCoins(balance - amount)}** 🪙`,
-      ephemeral: true,
+
+    // Hiện UI xác nhận trước khi đặt cược thật
+    return showConfirmation(interaction, {
+      prefix: 'bc',
+      emoji: '🦀',
+      choiceLabel: `${animalInfo.emoji} ${animalInfo.label}`,
+      amount,
+      note: `💰 Số dư hiện tại: **${formatCoins(balance)}** 🪙`,
+      onConfirm: async (confirmInteraction) => {
+        const active = activeSessions.get(confirmInteraction.guildId);
+        if (!active || !active.isActive) {
+          return confirmInteraction.followUp({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+        }
+        const result = await active.addBet(confirmInteraction.user.id, animal, amount);
+        if (!result.success) {
+          return confirmInteraction.followUp({ content: `❌ ${result.message}`, ephemeral: true });
+        }
+        return confirmInteraction.followUp({
+          content:
+            `✅ Đặt cược thành công\n\n` +
+            `Cửa: **${animalInfo.emoji} ${animalInfo.label}**\n` +
+            `Tiền cược: **${formatCoins(amount)}** 🪙\n` +
+            `💰 Số dư còn lại: **${formatCoins(balance - amount)}** 🪙`,
+          ephemeral: true,
+        });
+      },
     });
   },
 
@@ -390,22 +409,28 @@ module.exports = {
         });
       }
 
-      const result = await session.addBet(
-        interaction.user.id,
-        animal,
-        amount
-      );
-      if (!result.success) {
-        return interaction.reply({
-          content: `❌ **Lỗi**\n${result.message}`,
-          ephemeral: true,
-        });
-      }
-
       const animalInfo = ANIMALS.find((a) => a.name === animal);
-      return interaction.reply({
-        content: `✅ Đã đặt **${formatCoins(amount)}** 🪙 vào ${animalInfo.emoji} ${animalInfo.label}`,
-        ephemeral: true,
+
+      // Hiện UI xác nhận trước khi đặt cược thật
+      return showConfirmation(interaction, {
+        prefix: 'bc',
+        emoji: '🦀',
+        choiceLabel: `${animalInfo.emoji} ${animalInfo.label}`,
+        amount,
+        onConfirm: async (confirmInteraction) => {
+          const active = activeSessions.get(confirmInteraction.guildId);
+          if (!active || !active.isActive) {
+            return confirmInteraction.followUp({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+          }
+          const result = await active.addBet(confirmInteraction.user.id, animal, amount);
+          if (!result.success) {
+            return confirmInteraction.followUp({ content: `❌ **Lỗi**\n${result.message}`, ephemeral: true });
+          }
+          return confirmInteraction.followUp({
+            content: `✅ Đã đặt **${formatCoins(amount)}** 🪙 vào ${animalInfo.emoji} ${animalInfo.label}`,
+            ephemeral: true,
+          });
+        },
       });
     } catch (error) {
       console.error('[Baucua] Bet command error:', error);

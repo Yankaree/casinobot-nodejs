@@ -10,6 +10,7 @@ const { getStatsEmbed, getJackpotEmbed } = require('../games/global-taixiu/stats
 const { refreshRegisteredChannels } = require('../games/global-taixiu/chat/listener');
 const config = require('../config');
 const { formatCoins } = require('../utils/formatter');
+const { showConfirmation, handleConfirmationClick } = require('../utils/betConfirm');
 
 let activeSession = null;
 
@@ -308,23 +309,36 @@ module.exports = {
         });
       }
 
-      const result = await activeSession.addBet(
-        interaction.user.id,
-        interaction.guildId,
-        choice,
-        amount
-      );
-      if (!result.success) {
-        return interaction.reply({
-          content: `❌ **Lỗi**\n${result.message}`,
-          ephemeral: true,
-        });
-      }
-
       const choiceText = choice === 'tai' ? '📈 TÀI' : '📉 XỈU';
-      return interaction.reply({
-        content: `✅ Đã đặt **${formatCoins(amount)}** 🪙 vào ${choiceText}`,
-        ephemeral: true,
+
+      // Hiện UI xác nhận trước khi đặt cược thật
+      return showConfirmation(interaction, {
+        prefix: 'gtx',
+        emoji: '🌐',
+        choiceLabel: choiceText,
+        amount,
+        onConfirm: async (confirmInteraction) => {
+          const active = activeSession;
+          if (!active || !active.isActive) {
+            return confirmInteraction.followUp({ content: '❌ Phiên đã kết thúc!', ephemeral: true });
+          }
+          if (active.isPaused) {
+            return confirmInteraction.followUp({ content: '⏸️ Game đang tạm dừng!', ephemeral: true });
+          }
+          const result = await active.addBet(
+            confirmInteraction.user.id,
+            confirmInteraction.guildId,
+            choice,
+            amount
+          );
+          if (!result.success) {
+            return confirmInteraction.followUp({ content: `❌ **Lỗi**\n${result.message}`, ephemeral: true });
+          }
+          return confirmInteraction.followUp({
+            content: `✅ Đã đặt **${formatCoins(amount)}** 🪙 vào ${choiceText}`,
+            ephemeral: true,
+          });
+        },
       });
     } catch (error) {
       console.error('[GlobalTX] Bet command error:', error);
@@ -334,6 +348,12 @@ module.exports = {
         ephemeral: true,
       });
     }
+  },
+
+  // Nút xác nhận đặt cược Global Tài Xỉu (confirm:gtx:)
+  async handleButton(interaction) {
+    if (!interaction.customId.startsWith('confirm:gtx:')) return;
+    return handleConfirmationClick(interaction, 'gtx');
   },
 
   getActiveSession() {

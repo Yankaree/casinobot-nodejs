@@ -85,6 +85,33 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
 
+      // Nút xác nhận đặt cược Tài Xỉu (/bet + modal)
+      if (customId.startsWith('confirm:tx:')) {
+        const betCmd = client.commands.get('bet');
+        if (betCmd && betCmd.handleButton) {
+          await betCmd.handleButton(interaction);
+        }
+        return;
+      }
+
+      // Nút xác nhận đặt cược Bầu Cua
+      if (customId.startsWith('confirm:bc:')) {
+        const baucuaCmd = client.commands.get('baucua');
+        if (baucuaCmd && baucuaCmd.handleButton) {
+          await baucuaCmd.handleButton(interaction);
+        }
+        return;
+      }
+
+      // Nút xác nhận đặt cược Tài Xỉu Global
+      if (customId.startsWith('confirm:gtx:')) {
+        const gtxCmd = client.commands.get('globaltaixiu');
+        if (gtxCmd && gtxCmd.handleButton) {
+          await gtxCmd.handleButton(interaction);
+        }
+        return;
+      }
+
       // Tai Xiu button
       if (customId.startsWith('taixiu_bet_')) {
         const taixiuCmd = client.commands.get('taixiu');
