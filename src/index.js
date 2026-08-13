@@ -233,6 +233,14 @@ async function startBot() {
     console.error('[Bot] Bot will start but DB features may not work');
   }
 
+  // Reset hũ hằng ngày lúc 7:00 (GMT+7)
+  try {
+    const { startJackpotResetScheduler } = require('./utils/jackpotScheduler');
+    startJackpotResetScheduler();
+  } catch (err) {
+    console.error('[Bot] Không khởi động được scheduler reset hũ:', err.message);
+  }
+
   const MAX_LOGIN_ATTEMPTS = 5;
   for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt++) {
     try {

@@ -48,8 +48,10 @@ SHARED
 ├── users            (id, guild_id, discord_id, coin DEFAULT 10000, win_count, lose_count, last_work_at, created_at)
 │                    UNIQUE(guild_id, discord_id)
 ├── config           (guild_id PK, taixiu_channel_id, baucua_channel_id)
-└── jackpots         (guild_id, game_name, balance DEFAULT 100000000, updated_at)
-                    PK(guild_id, game_name) — per-game: 'taixiu' | 'baucua'
+├── jackpots         (guild_id, game_name, balance DEFAULT 100000000, updated_at)
+│                    PK(guild_id, game_name) — per-game: 'taixiu' | 'baucua'
+└── loans            (id, guild_id, discord_id, amount, rate, debt, status 'active'|'repaid', created_at, updated_at)
+                     — vay tiền với lãi: debt = amount × (1 + rate); reset hũ hằng ngày 7:00 GMT+7 (config.jackpot)
 
 TAI XIU
 ├── taixiu_sessions  (id PK, guild_id, dice1, dice2, dice3, result, total_bet, created_at)

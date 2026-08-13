@@ -145,9 +145,21 @@ const SCHEMA_SQL = [
     game TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS loans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    discord_id TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    rate REAL NOT NULL,
+    debt INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE INDEX IF NOT EXISTS idx_coin_transactions_guild ON coin_transactions (guild_id)`,
   `CREATE INDEX IF NOT EXISTS idx_coin_transactions_discord ON coin_transactions (discord_id)`,
   `CREATE INDEX IF NOT EXISTS idx_card_game_history_guild ON card_game_history (guild_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_loans_active ON loans (guild_id, discord_id, status)`,
 ];
 
 function sqlWithTimeout(connection, sql, params) {

@@ -29,6 +29,18 @@ module.exports = {
     cooldownMs: 10 * 1000, // 10 giây chống spam
   },
 
+  jackpot: {
+    dailyResetHourGmt7: 7, // Reset hũ hằng ngày lúc 7:00 (GMT+7)
+    defaultBalance: 1000000000, // Giá trị hũ sau khi reset (1 tỷ)
+  },
+
+  loan: {
+    maxLoan: 1000000000, // Vay tối đa 1 tỷ / lần
+    tierBoundary: 100000000, // Từ 100 triệu trở lên → lãi 200%
+    lowRate: 1.0, // Lãi 100% (dưới 100 triệu)
+    highRate: 2.0, // Lãi 200% (từ 100 triệu)
+  },
+
   adminUsers: ['924487653456511048'],
 
   colors: {

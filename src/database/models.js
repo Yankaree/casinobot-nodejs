@@ -1,4 +1,5 @@
 const { getDb, queryWithRetry } = require('./database');
+const config = require('../config');
 const leaderboardCache = require('../utils/leaderboardCache');
 
 // ═══════════════════════════════════════════
@@ -201,6 +202,18 @@ const JackpotModel = {
         guildId, gameName
       );
       return 0;
+    });
+  },
+
+  // Reset toàn bộ hũ (mọi server + hũ global) về giá trị mặc định hằng ngày
+  async resetAllToDefault() {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      await db.sql(
+        'UPDATE jackpots SET balance = ?, updated_at = CURRENT_TIMESTAMP',
+        config.jackpot.defaultBalance
+      );
+      return config.jackpot.defaultBalance;
     });
   },
 };
@@ -834,6 +847,65 @@ const CardGameHistoryModel = {
 };
 
 // ═══════════════════════════════════════════
+// LOAN MODEL (vay tiền với lãi suất)
+// ═══════════════════════════════════════════
+
+const LoanModel = {
+  async create({ guildId, discordId, amount, rate, debt }) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const result = await db.sql(
+        'INSERT INTO loans (guild_id, discord_id, amount, rate, debt) VALUES (?, ?, ?, ?, ?)',
+        guildId, discordId, amount, rate, debt
+      );
+      return result.lastID;
+    });
+  },
+
+  async getActive(guildId, discordId) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT * FROM loans WHERE guild_id = ? AND discord_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1`,
+        guildId, discordId
+      );
+      return rows[0] || null;
+    });
+  },
+
+  // Trả nợ (một phần hoặc toàn bộ). Trả về { loan, repaid, remainingDebt, fullyRepaid }
+  // hoặc null nếu không có khoản vay đang hoạt động.
+  async repay(guildId, discordId, amount) {
+    return queryWithRetry(async () => {
+      const db = getDb();
+      const rows = await db.sql(
+        `SELECT * FROM loans WHERE guild_id = ? AND discord_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1`,
+        guildId, discordId
+      );
+      const loan = rows[0];
+      if (!loan) return null;
+
+      const pay = Math.min(amount, loan.debt);
+      const remainingDebt = loan.debt - pay;
+
+      if (remainingDebt <= 0) {
+        await db.sql(
+          "UPDATE loans SET status = 'repaid', debt = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+          loan.id
+        );
+        return { loan, repaid: loan.debt, remainingDebt: 0, fullyRepaid: true };
+      }
+
+      await db.sql(
+        'UPDATE loans SET debt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        remainingDebt, loan.id
+      );
+      return { loan, repaid: pay, remainingDebt, fullyRepaid: false };
+    });
+  },
+};
+
+// ═══════════════════════════════════════════
 // WEREWOLF MODELS
 // ═══════════════════════════════════════════
 
@@ -928,6 +1000,7 @@ module.exports = {
   GlobalTaixiuSessionModel,
   GlobalTaixiuBetModel,
   TransactionModel,
+  LoanModel,
   WerewolfLobbyModel,
   WerewolfHistoryModel,
   CardGameHistoryModel,
