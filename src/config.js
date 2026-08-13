@@ -51,6 +51,7 @@ module.exports = {
     maxPlayers: 8, // Giới hạn người chơi tối đa
     minBet: 1000, // Cược tối thiểu mỗi round
     minBattleCoin: 1000, // Battle Coin < mức này → ACTIVE → SPECTATOR
+    setCoinMax: 1000000000, // Giới hạn trên khi tự chỉnh Battle Coin (/txdeath setcoin)
     roundDuration: 50, // Giây mỗi round (dùng chung với timer Tài Xỉu thường)
     eventChance: 0.4, // 40% round có event
     taxPercent: 0.05, // Event thuế: mỗi người mất 5% Battle Coin

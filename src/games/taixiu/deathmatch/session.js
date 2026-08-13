@@ -58,6 +58,7 @@ class DeathmatchSession extends GameSession {
     this.finalRanking = null;
     this._finalAnnounced = false;
     this._roundEnding = false;
+    this._instantEnd = false; // đủ cược → bỏ qua 'Đang quay...', ra kết quả thẳng
   }
 
   // ─────────────────────────────────────────────
@@ -124,6 +125,7 @@ class DeathmatchSession extends GameSession {
     this.bets = { tai: [], xiu: [] };
     this.currentEvent = null;
     this._roundEnding = false;
+    this._instantEnd = false;
     this._finalAnnounced = this.matchState === 'FINAL_ROUND';
     this.roundStartedAt = Date.now();
     this.timeLeft = config.deathmatch.roundDuration;
@@ -343,6 +345,7 @@ class DeathmatchSession extends GameSession {
         clearInterval(this._tickInterval);
         this._tickInterval = null;
       }
+      this._instantEnd = true; // ra kết quả thẳng, không cần chờ hết timer round
       setTimeout(() => {
         if (!this.isStopped && this.isActive) {
           this.end(this._client).catch((err) => console.error('[TXDeath] Early end error:', err));
@@ -397,16 +400,20 @@ class DeathmatchSession extends GameSession {
       return;
     }
 
-    await this.channelSend({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle('⚔️ TÀI XỈU DEATHMATCH')
-          .setDescription(`**Phòng ${this.roomId}** · Round **${this.roundNumber}**\n\n🎲 Đang quay...`)
-          .setColor(config.colors.primary),
-      ],
-    });
+    const instant = this._instantEnd;
+    this._instantEnd = false;
 
-    await sleep(config.deathmatch.rollDelayMs);
+    if (!instant) {
+      await this.channelSend({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle('⚔️ TÀI XỈU DEATHMATCH')
+            .setDescription(`**Phòng ${this.roomId}** · Round **${this.roundNumber}**\n\n🎲 Đang quay...`)
+            .setColor(config.colors.primary),
+        ],
+      });
+      await sleep(config.deathmatch.rollDelayMs);
+    }
     if (this.isStopped) return;
 
     // Random kết quả — reuse engine Tài Xỉu, key riêng để không trộn lịch sử
@@ -432,6 +439,30 @@ class DeathmatchSession extends GameSession {
         this.startRound(client).catch((err) => console.error('[TXDeath] Next round error:', err));
       }
     }, config.deathmatch.nextRoundDelayMs);
+  }
+
+  /**
+   * Tự chỉnh Battle Coin của người chơi trong trận (RAM).
+   * amount < minBattleCoin → SPECTATOR; amount >= minBattleCoin → ACTIVE (tái nhập).
+   */
+  setBattleCoin(userId, amount) {
+    const player = this.players.get(userId);
+    if (!player) return { success: false, message: 'Người chơi không trong trận này!' };
+    if (this.matchState === 'FINISHED') return { success: false, message: 'Trận đã kết thúc!' };
+
+    const value = Math.floor(Number(amount));
+    if (!Number.isFinite(value) || value < 0) {
+      return { success: false, message: 'Số Battle Coin không hợp lệ!' };
+    }
+
+    player.battleCoin = value;
+    if (value < config.deathmatch.minBattleCoin) {
+      player.status = 'SPECTATOR';
+    } else {
+      player.status = 'ACTIVE';
+    }
+
+    return { success: true, balance: value, status: player.status };
   }
 
   /**

@@ -261,6 +261,127 @@ async function testFullMatch() {
   session.stop();
 }
 
+// ── 6. Auto kết quả: đủ cược → ra ngay, hết timer → chốt ──
+async function testAutoResult() {
+  console.log('\n6. Auto kết quả (hết phiên / toàn bộ cược)');
+
+  // (a) Tất cả ACTIVE cược → kết quả ra NGAY, không chờ hết timer round
+  config.deathmatch.roundDuration = 10; // round dài — nếu không auto sẽ mất 10s
+  config.deathmatch.rollDelayMs = 2000; // rolling chỉ được bỏ qua ở path instant
+  config.deathmatch.allBetDelayMs = 300;
+  config.deathmatch.nextRoundDelayMs = 100000;
+  config.deathmatch.eventChance = 0;
+
+  const messagesA = [];
+  const channelA = {
+    send: async (payload) => {
+      messagesA.push({ t: Date.now(), payload });
+      return { edit: async () => {} };
+    },
+  };
+  const clientA = { channels: { cache: new Map([['c1', channelA]]) } };
+
+  const roomA = new DeathmatchLobby({ guildId: 'g1', channelId: 'c1', hostId: 'p1', initialCoin: 100000, minutes: 10, maxPlayers: 8 });
+  const playersA = new Map([
+    ['p1', { userId: 'p1', username: 'A' }],
+    ['p2', { userId: 'p2', username: 'B' }],
+    ['p3', { userId: 'p3', username: 'C' }],
+  ]);
+  const sessionA = new DeathmatchSession(roomA, playersA);
+  sessionA.matchDurationMs = 60000;
+  await sessionA.start(clientA);
+  await new Promise((r) => setTimeout(r, 500));
+
+  await sessionA.addBet('p1', 'tai', 10000);
+  await sessionA.addBet('p2', 'xiu', 5000);
+  const lastBetAt = Date.now();
+  await sessionA.addBet('p3', 'tai', 20000); // cược cuối → đủ cược
+
+  await new Promise((r) => setTimeout(r, 1500));
+
+  const resultsA = messagesA.filter((m) => m.payload.embeds && m.payload.embeds[0].data.title && m.payload.embeds[0].data.title.includes('KẾT QUẢ'));
+  assert.ok(resultsA.length >= 1, 'đủ cược → phải có embed kết quả');
+  const waitA = resultsA[0].t - lastBetAt;
+  assert.ok(waitA < 2500, `kết quả phải ra ngay sau cược cuối (thực tế ${waitA}ms)`);
+  const rollingA = messagesA.filter((m) => m.payload.embeds && m.payload.embeds[0].data.description && String(m.payload.embeds[0].data.description).includes('Đang quay'));
+  assert.strictEqual(rollingA.length, 0, 'đủ cược → BỎ QUA rolling, ra kết quả thẳng');
+  ok(`tất cả ACTIVE cược → kết quả sau ~${waitA}ms (timer round 10s bị bỏ qua, không có 'Đang quay...')`);
+  sessionA.stop();
+
+  // (b) Chỉ một phần cược → phải chờ hết timer round mới có kết quả
+  config.deathmatch.roundDuration = 2;
+  config.deathmatch.rollDelayMs = 200;
+  config.deathmatch.allBetDelayMs = 100000; // vô hiệu path early-end
+  config.deathmatch.nextRoundDelayMs = 100000;
+
+  const messagesB = [];
+  const channelB = {
+    send: async (payload) => {
+      messagesB.push({ t: Date.now(), payload });
+      return { edit: async () => {} };
+    },
+  };
+  const clientB = { channels: { cache: new Map([['c1', channelB]]) } };
+
+  const roomB = new DeathmatchLobby({ guildId: 'g1', channelId: 'c1', hostId: 'p1', initialCoin: 100000, minutes: 10, maxPlayers: 8 });
+  const playersB = new Map([
+    ['p1', { userId: 'p1', username: 'A' }],
+    ['p2', { userId: 'p2', username: 'B' }],
+    ['p3', { userId: 'p3', username: 'C' }],
+  ]);
+  const sessionB = new DeathmatchSession(roomB, playersB);
+  sessionB.matchDurationMs = 60000;
+  await sessionB.start(clientB);
+  await new Promise((r) => setTimeout(r, 400));
+  const roundStartB = sessionB.roundStartedAt;
+
+  await sessionB.addBet('p1', 'tai', 10000);
+  await sessionB.addBet('p2', 'xiu', 5000);
+  // p3 KHÔNG cược → round phải chờ hết timer (2s)
+
+  await new Promise((r) => setTimeout(r, 3500));
+
+  const resultsB = messagesB.filter((m) => m.payload.embeds && m.payload.embeds[0].data.title && m.payload.embeds[0].data.title.includes('KẾT QUẢ'));
+  assert.strictEqual(resultsB.length, 1, 'chỉ round 1 có kết quả');
+  const waitB = resultsB[0].t - roundStartB;
+  assert.ok(waitB >= 1500, `cược 1 phần → KHÔNG lật sớm, phải chờ hết timer (thực tế ${waitB}ms)`);
+  assert.ok(waitB < 6000, `có kết quả sau khi hết timer round (thực tế ${waitB}ms)`);
+  ok(`cược 1 phần → kết quả sau ~${waitB}ms (đúng timer round 2s)`);
+  sessionB.stop();
+}
+
+// ── 7. Tự chỉnh Battle Coin ──
+async function testSetCoin() {
+  console.log('\n7. Tự chỉnh Battle Coin (setcoin)');
+  const s = makeSession();
+  const p2 = s.players.get('p2');
+  p2.battleCoin = 500;
+  p2.status = 'SPECTATOR';
+
+  // SPECTATOR nạp lại → ACTIVE, đặt cược được
+  let res = s.setBattleCoin('p2', 50000);
+  assert.strictEqual(res.success, true);
+  assert.strictEqual(p2.battleCoin, 50000);
+  assert.strictEqual(p2.status, 'ACTIVE');
+  s.isActive = true; // session đơn vị chưa start — mở cửa cược để test addBet
+  const betRes = await s.addBet('p2', 'tai', 1000);
+  assert.ok(betRes.success, 'sau khi tái nhập phải cược được');
+  ok('SPECTATOR nạp BC >= 1,000 → ACTIVE và đặt cược được ngay');
+
+  // set dưới ngưỡng → SPECTATOR
+  res = s.setBattleCoin('p2', 900);
+  assert.strictEqual(res.success, true);
+  assert.strictEqual(p2.status, 'SPECTATOR');
+  ok('set BC < 1,000 → SPECTATOR');
+
+  // người ngoài trận / số âm → từ chối
+  res = s.setBattleCoin('p99', 5000);
+  assert.strictEqual(res.success, false);
+  res = s.setBattleCoin('p2', -5);
+  assert.strictEqual(res.success, false);
+  ok('người không trong trận / số âm → từ chối');
+}
+
 (async () => {
   // Tránh timer kết thúc sớm của session đơn vị bắn sau khi test xong (session chưa start → _client null)
   config.deathmatch.allBetDelayMs = 100000;
@@ -269,6 +390,8 @@ async function testFullMatch() {
   testEvents();
   testRanking();
   await testFullMatch();
+  await testAutoResult();
+  await testSetCoin();
   console.log(`\n✅ SIM DEATHMATCH: ${passed} assertions PASS`);
   process.exit(0);
 })().catch((err) => {

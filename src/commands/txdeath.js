@@ -69,6 +69,24 @@ module.exports = {
     .addSubcommand((sub) => sub.setName('end').setDescription('Kết thúc trận sớm (chủ phòng)'))
     .addSubcommand((sub) =>
       sub
+        .setName('setcoin')
+        .setDescription('Tự chỉnh Battle Coin của mình (chủ phòng/admin chỉnh được người khác)')
+        .addIntegerOption((option) =>
+          option
+            .setName('amount')
+            .setDescription('Số Battle Coin muốn đặt')
+            .setRequired(true)
+            .setMinValue(0)
+            .setMaxValue(config.deathmatch.setCoinMax)
+        )
+        .addUserOption((option) =>
+          option
+            .setName('player')
+            .setDescription('Người cần chỉnh (mặc định: chính bạn)')
+        )
+    )
+    .addSubcommand((sub) =>
+      sub
         .setName('bet')
         .setDescription('Đặt cược Battle Coin')
         .addStringOption((option) =>
@@ -242,6 +260,44 @@ module.exports = {
       }
       const result = await match.endMatchEarly(interaction.client);
       return interaction.reply({ content: result.message, ephemeral: true });
+    }
+
+    // ── SETCOIN (tự chỉnh Battle Coin) ────────
+    if (subcommand === 'setcoin') {
+      const match = matches.get(guildId);
+      if (!match) {
+        return interaction.reply({ content: '❌ **Lỗi**\nKhông có trận nào đang chạy!', ephemeral: true });
+      }
+
+      const amount = interaction.options.getInteger('amount');
+      const target = interaction.options.getUser('player');
+      const targetId = target ? target.id : interaction.user.id;
+
+      if (target) {
+        // Chỉnh người khác → cần chủ phòng/admin
+        const isHost = interaction.user.id === match.hostId;
+        const isAdminConfig = config.adminUsers.includes(interaction.user.id);
+        const isAdminDiscord = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isHost && !isAdminConfig && !isAdminDiscord) {
+          return interaction.reply({ content: '❌ Chỉ chủ phòng hoặc admin mới chỉnh được Battle Coin người khác!', ephemeral: true });
+        }
+      } else if (!match.players.has(interaction.user.id)) {
+        return interaction.reply({ content: '❌ Bạn không tham gia trận này!', ephemeral: true });
+      }
+
+      const res = match.setBattleCoin(targetId, amount);
+      if (!res.success) {
+        return interaction.reply({ content: `❌ **Lỗi**\n${res.message}`, ephemeral: true });
+      }
+
+      const who = target ? `**${target.username}**` : 'Bạn';
+      const statusText = res.status === 'ACTIVE' ? '⚔️ ACTIVE' : '👁️ SPECTATOR';
+      return interaction.reply({
+        content:
+          `✅ **Đã chỉnh Battle Coin!**\n` +
+          `${who} giờ có **${formatCoins(res.balance)}** Battle Coin · ${statusText}`,
+        ephemeral: true,
+      });
     }
 
     // ── BET ───────────────────────────────────

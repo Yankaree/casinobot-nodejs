@@ -53,6 +53,7 @@ module.exports = {
             '`/txdeath leave` - Rời phòng',
             '`/txdeath start` - Bắt đầu trận (chủ phòng)',
             '`/txdeath bet <tai/xiu> <số Battle Coin>` - Đặt cược',
+            '`/txdeath setcoin <số BC> [@player]` - Tự chỉnh Battle Coin (chủ phòng/admin chỉnh được người khác)',
             '`/txdeath leaderboard` - Bảng xếp hạng Battle Coin trong trận',
             '`/txdeath info` - Xem thông tin phòng/trận',
             'Dùng **Battle Coin** riêng (không phải coin chính), hết giờ trận = FINAL ROUND',
@@ -115,7 +116,7 @@ module.exports = {
           value: [
             '• Mỗi người nhận **Battle Coin** khi start (mặc định 100,000)',
             '• Mỗi round: cược Tài/Xỉu bằng Battle Coin, thắng nhận lại vốn + chia tiền người thua',
-            '• Tất cả người ACTIVE cược hết → lật kết quả ngay; hết timer → chốt round',
+            '• Tất cả người ACTIVE cược hết → **lật kết quả ngay** (không chờ timer); hết timer → chốt round',
             '• Hết giờ trận → **FINAL ROUND**, round cuối xong là tính thứ hạng chung cuộc',
             '• Battle Coin chỉ tồn tại trong trận — không lưu wallet, không đổi ra coin chính',
           ].join('\n'),
