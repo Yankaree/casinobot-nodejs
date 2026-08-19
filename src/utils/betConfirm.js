@@ -15,22 +15,27 @@ const { formatCoins } = require('./formatter');
 
 const CONFIRM_TIMEOUT_MS = 30_000;
 
-// userId -> { prefix, guildId, message, timer, onConfirm, onCancel }
+// key: `${guildId}:${userId}` -> { prefix, guildId, message, timer, onConfirm, onCancel }
+// Dùng guildId:key để mỗi server có pending riêng, không bị trùng cross-guild.
 const pendingByUser = new Map();
 
-function clearPendingFor(userId) {
-  const p = pendingByUser.get(userId);
+function pendingKey(guildId, userId) {
+  return `${guildId}:${userId}`;
+}
+
+function clearPendingFor(guildId, userId) {
+  const p = pendingByUser.get(pendingKey(guildId, userId));
   if (p) {
     clearTimeout(p.timer);
-    pendingByUser.delete(userId);
+    pendingByUser.delete(pendingKey(guildId, userId));
   }
 }
 
-// Hủy lời xác nhận cũ của người chơi (nếu có) trước khi tạo lời mới
-async function expireOldPending(userId) {
-  const old = pendingByUser.get(userId);
+// Hủy lời xác nhận cũ của người chơi TRONG CÙNG GUILD (nếu có) trước khi tạo lời mới
+async function expireOldPending(guildId, userId) {
+  const old = pendingByUser.get(pendingKey(guildId, userId));
   if (!old) return;
-  clearPendingFor(userId);
+  clearPendingFor(guildId, userId);
   try {
     await old.message.edit({
       content: '⏳ Lời xác nhận trước đã hết hạn.',
@@ -55,10 +60,11 @@ async function expireOldPending(userId) {
  *   onCancel:    async (interaction) => {} — chạy khi bấm Hủy (tùy chọn)
  */
 async function showConfirmation(interaction, { prefix, emoji, choiceLabel, amount, note, onConfirm, onCancel }) {
-  await expireOldPending(interaction.user.id);
+  await expireOldPending(interaction.guildId, interaction.user.id);
   await interaction.deferReply({ ephemeral: true });
 
   const uid = interaction.user.id;
+  const guildId = interaction.guildId;
   const embed = new EmbedBuilder()
     .setTitle(`${emoji || '🤔'} Xác nhận đặt cược`)
     .setDescription(
@@ -82,9 +88,9 @@ async function showConfirmation(interaction, { prefix, emoji, choiceLabel, amoun
   const message = await interaction.editReply({ embeds: [embed], components: [row] });
 
   const timer = setTimeout(async () => {
-    const cur = pendingByUser.get(uid);
+    const cur = pendingByUser.get(pendingKey(guildId, uid));
     if (cur && cur.message === message) {
-      clearPendingFor(uid);
+      clearPendingFor(guildId, uid);
       try {
         await message.edit({
           content: '⏳ Hết thời gian xác nhận — đã hủy đặt cược.',
@@ -97,7 +103,7 @@ async function showConfirmation(interaction, { prefix, emoji, choiceLabel, amoun
     }
   }, CONFIRM_TIMEOUT_MS);
 
-  pendingByUser.set(uid, { prefix, guildId: interaction.guildId, message, timer, onConfirm, onCancel });
+  pendingByUser.set(pendingKey(guildId, uid), { prefix, guildId, message, timer, onConfirm, onCancel });
 }
 
 /**
@@ -112,15 +118,15 @@ async function handleConfirmationClick(interaction, prefix) {
     return interaction.reply({ content: '❌ Nút này không phải của bạn!', ephemeral: true });
   }
 
-  const pending = pendingByUser.get(uid);
-  if (!pending || pending.prefix !== prefix || pending.guildId !== interaction.guildId) {
+  const pending = pendingByUser.get(pendingKey(interaction.guildId, uid));
+  if (!pending || pending.prefix !== prefix) {
     return interaction.reply({
       content: '❌ Lời xác nhận đã hết hạn — hãy đặt cược lại!',
       ephemeral: true,
     });
   }
 
-  clearPendingFor(uid);
+  clearPendingFor(interaction.guildId, uid);
 
   // Khóa nút ngay (chống bấm đúp / bấm lại)
   try {

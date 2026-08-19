@@ -15,13 +15,17 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 
 const cooldowns = new Map();
 
-function isRateLimited(userId) {
-  const last = cooldowns.get(userId) || 0;
+function cooldownKey(guildId, userId) {
+  return `${guildId}:${userId}`;
+}
+
+function isRateLimited(guildId, userId) {
+  const last = cooldowns.get(cooldownKey(guildId, userId)) || 0;
   return Date.now() - last < config.leaderboard.cooldownMs;
 }
 
-function setCooldown(userId) {
-  cooldowns.set(userId, Date.now());
+function setCooldown(guildId, userId) {
+  cooldowns.set(cooldownKey(guildId, userId), Date.now());
 }
 
 async function getServerTop(guildId) {

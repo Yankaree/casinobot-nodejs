@@ -26,7 +26,7 @@ module.exports = {
       return interaction.reply({ content: '❌ Lệnh này chỉ dùng được trong server!', ephemeral: true });
     }
 
-    if (isRateLimited(interaction.user.id)) {
+    if (isRateLimited(interaction.guildId, interaction.user.id)) {
       return interaction.reply({
         content: `⏳ **Chờ chút**\nVui lòng chờ **${Math.ceil(config.leaderboard.cooldownMs / 1000)} giây** trước khi dùng lại!`,
         ephemeral: true,
@@ -62,7 +62,7 @@ module.exports = {
           .setThumbnail(targetUser.displayAvatarURL())
           .setTimestamp();
 
-        setCooldown(interaction.user.id);
+        setCooldown(interaction.guildId, interaction.user.id);
         return interaction.reply({ embeds: [embed] });
       }
 
@@ -75,7 +75,7 @@ module.exports = {
         .setFooter({ text: `Dùng /leaderboard @user để xem thống kê riêng` })
         .setTimestamp();
 
-      setCooldown(interaction.user.id);
+      setCooldown(interaction.guildId, interaction.user.id);
       return interaction.reply({ embeds: [embed] });
     } catch (error) {
       console.error('Leaderboard command error:', error);
