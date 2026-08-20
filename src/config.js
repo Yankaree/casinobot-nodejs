@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Load overrides from .env.local if present (e.g. SQLite Cloud URI)
+require('dotenv').config({ path: '.env.local', override: true });
 
 module.exports = {
   token: process.env.DISCORD_TOKEN,
@@ -8,7 +10,7 @@ module.exports = {
   game: {
     sessionDuration: 50,
     betMultiplier: 2.5,
-    startingCoins: 100,
+    startingCoins: 100000,
     maxEmptyRounds: 3,
   },
 
